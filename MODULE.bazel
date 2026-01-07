@@ -186,6 +186,17 @@ go_deps_dev.module_override(
     path = "github.com/hanwen/go-fuse/v2",
 )
 
+bazel_dep(name = "toolchains_cc")
+git_override(
+    module_name = "toolchains_cc",
+    remote = "https://github.com/reutermj/toolchains_cc.git",
+    commit = "f4eee86cfe43d10c78cc6be9b61720ac59bacecc",
+)
+register_toolchains(
+    "@toolchains_cc",
+    dev_dependency = True,
+)
+
 cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
 use_repo(cc_configure, "local_config_cc_toolchains")
 
