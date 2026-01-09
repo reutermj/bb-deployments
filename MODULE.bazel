@@ -16,7 +16,6 @@ bazel_dep(name = "opentelemetry-proto", version = "1.7.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "toolchains_protoc", version = "0.4.3")  # must come BEFORE protobuf so the toolchain registration wins
 bazel_dep(name = "protobuf", version = "31.1")
-bazel_dep(name = "remote_config_cc")
 bazel_dep(name = "rules_antlr")
 bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_go", version = "0.56.1")
@@ -40,13 +39,6 @@ http_archive(
     sha256 = "e676640e69e210636de795f571237bec09a9ad9af6e441bf56f0d193cfe1c9fc",
     strip_prefix = "abseil-hello-b4803b41ab3d58c503265148e5a7d3fd2a8e46d3/bazel-hello",
     urls = ["https://github.com/abseil/abseil-hello/archive/b4803b41ab3d58c503265148e5a7d3fd2a8e46d3.zip"],
-)
-
-# Import toolchain repositories for remote executions, but register the
-# toolchains using --extra_toolchains on the command line to get precedence.
-local_path_override(
-    module_name = "remote_config_cc",
-    path = "tools/remote-toolchains/ubuntu-act-22-04/local_config_cc",
 )
 
 git_override(
