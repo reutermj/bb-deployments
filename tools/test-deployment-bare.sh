@@ -3,6 +3,8 @@
 
 set -eux -o pipefail -E
 
+rm -rf tmp-test-bare
+
 script_dir=$(dirname "${BASH_SOURCE[0]}")
 root="$(realpath "$script_dir"/..)"
 cd "$root"
