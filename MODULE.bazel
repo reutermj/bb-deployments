@@ -33,23 +33,6 @@ bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
-    name = "grafonnet_lib",
-    build_file_content = """
-load("@rules_jsonnet//jsonnet:jsonnet.bzl", "jsonnet_library")
-
-jsonnet_library(
-    name = "grafonnet",
-    srcs = glob(["grafonnet/*.libsonnet"]),
-    imports = ["."],
-    visibility = ["//visibility:public"],
-)
-""",
-    sha256 = "ef8d75ab8633024f0a214f61e28ca8a5fe384467ce1151587eb812ddf7181e76",
-    strip_prefix = "grafonnet-lib-04f3e87e2d524c7aba936aae525f388290d94291",
-    urls = ["https://github.com/grafana/grafonnet-lib/archive/04f3e87e2d524c7aba936aae525f388290d94291.tar.gz"],
-)
-
-http_archive(
     name = "abseil-hello",
     patch_cmds = [
         "sed -i 's/com_google_absl/abseil-cpp/' BUILD.bazel",
