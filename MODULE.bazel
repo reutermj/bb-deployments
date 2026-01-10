@@ -1,22 +1,89 @@
 module(name = "com_github_buildbarn_bb_deployments")
 
-bazel_dep(name = "abseil-cpp", version = "20250127.0")
-bazel_dep(name = "bazel_remote_apis", version = "0.0.0")
-bazel_dep(name = "com_github_buildbarn_bb_browser")
+###############################################################################
+# Buildbarn Services
+###############################################################################
 bazel_dep(name = "com_github_buildbarn_bb_remote_execution")
-bazel_dep(name = "com_github_buildbarn_bb_storage")
-bazel_dep(name = "com_github_buildbarn_go_xdr")
-bazel_dep(name = "gazelle", version = "0.45.0")
-bazel_dep(name = "googleapis", version = "0.0.0-20250703-f9d6fe4a")
-bazel_dep(name = "googletest", version = "1.16.0")
-bazel_dep(name = "rules_antlr")
-bazel_dep(name = "rules_cc", version = "0.2.16")
-bazel_dep(name = "rules_go", version = "0.56.1")
+git_override(
+    module_name = "com_github_buildbarn_bb_remote_execution",
+    commit = "babfe8f73772adb40306ee23546d3f827d120998",
+    remote = "https://github.com/buildbarn/bb-remote-execution.git",
+)
 
+bazel_dep(name = "com_github_buildbarn_bb_storage")
+git_override(
+    module_name = "com_github_buildbarn_bb_storage",
+    commit = "51e1a67922e22d65445f43aa809636cb481644f3",
+    remote = "https://github.com/buildbarn/bb-storage.git",
+)
+
+
+# required to be set by bb-remote-execution
+bazel_dep(name = "com_github_buildbarn_go_xdr")
+git_override(
+    module_name = "com_github_buildbarn_go_xdr",
+    commit = "236788cf9e8948a1e8875c7dd243e2be180cdfd7",
+    remote = "https://github.com/buildbarn/go-xdr.git",
+)
+
+# Probably wont deploy
+bazel_dep(name = "com_github_buildbarn_bb_browser")
+git_override(
+    module_name = "com_github_buildbarn_bb_browser",
+    commit = "9886820de1cc9ad4183bf765266161260d514d91",
+    remote = "https://github.com/buildbarn/bb-browser.git",
+)
+
+###############################################################################
+# Required toolchain to build the services
+###############################################################################
+bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "toolchains_cc")
+git_override(
+    module_name = "toolchains_cc",
+    commit = "f4eee86cfe43d10c78cc6be9b61720ac59bacecc",
+    remote = "https://github.com/reutermj/toolchains_cc.git",
+)
+register_toolchains(
+    "@toolchains_cc",
+    dev_dependency = True,
+)
+
+###############################################################################
+# Misc Required dependency
+###############################################################################
+# required to be set by bb-remote-execution
+bazel_dep(name = "rules_antlr")
+git_override(
+    module_name = "rules_antlr",
+    commit = "89a29cca479363a5aee53e203719510bdc6be6ff",
+    patches = [
+        "//:patches/rules_antlr/antlr-4.10.diff",
+        "//:patches/rules_antlr/bzlmod.diff",
+    ],
+    remote = "https://github.com/marcohu/rules_antlr.git",
+)
+
+# required to be set by bb-remote-execution and bb-storage
+bazel_dep(name = "bazel_remote_apis", version = "0.0.0")
+git_override(
+    module_name = "bazel_remote_apis",
+    commit = "3051389c06348307437e92e3a1d3c6d6566094b4",
+    remote = "https://github.com/bazelbuild/remote-apis.git",
+)
+
+###############################################################################
+# Not required, maybe nice to have linting
+###############################################################################
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
+###############################################################################
+# I think this is just for testing the bare deployment
+###############################################################################
+bazel_dep(name = "abseil-cpp", version = "20250127.0")
+bazel_dep(name = "googleapis", version = "0.0.0-20250703-f9d6fe4a")
+bazel_dep(name = "googletest", version = "1.16.0")
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
 http_archive(
     name = "abseil-hello",
     patch_cmds = [
@@ -28,54 +95,15 @@ http_archive(
     urls = ["https://github.com/abseil/abseil-hello/archive/b4803b41ab3d58c503265148e5a7d3fd2a8e46d3.zip"],
 )
 
-git_override(
-    module_name = "bazel_remote_apis",
-    commit = "3051389c06348307437e92e3a1d3c6d6566094b4",
-    remote = "https://github.com/bazelbuild/remote-apis.git",
-)
+###############################################################################
+# Hoping all this go stuff goes away with our deployment
+###############################################################################
+bazel_dep(name = "rules_go", version = "0.56.1")
 
-git_override(
-    module_name = "com_github_buildbarn_bb_browser",
-    commit = "9886820de1cc9ad4183bf765266161260d514d91",
-    remote = "https://github.com/buildbarn/bb-browser.git",
-)
-
-git_override(
-    module_name = "com_github_buildbarn_bb_remote_execution",
-    commit = "babfe8f73772adb40306ee23546d3f827d120998",
-    remote = "https://github.com/buildbarn/bb-remote-execution.git",
-)
-
-git_override(
-    module_name = "com_github_buildbarn_bb_storage",
-    commit = "51e1a67922e22d65445f43aa809636cb481644f3",
-    remote = "https://github.com/buildbarn/bb-storage.git",
-)
-
-git_override(
-    module_name = "com_github_buildbarn_go_xdr",
-    commit = "236788cf9e8948a1e8875c7dd243e2be180cdfd7",
-    remote = "https://github.com/buildbarn/go-xdr.git",
-)
-
-git_override(
-    module_name = "rules_antlr",
-    commit = "89a29cca479363a5aee53e203719510bdc6be6ff",
-    patches = [
-        "//:patches/rules_antlr/antlr-4.10.diff",
-        "//:patches/rules_antlr/bzlmod.diff",
-    ],
-    remote = "https://github.com/marcohu/rules_antlr.git",
-)
-
+bazel_dep(name = "gazelle", version = "0.45.0")
 single_version_override(
     module_name = "gazelle",
     patches = ["//:patches/gazelle/dont-flatten-srcs.diff"],
-)
-
-single_version_override(
-    module_name = "jsonnet",
-    patches = ["//:patches/jsonnet/bazel-8.diff"],
 )
 
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
@@ -135,16 +163,4 @@ go_deps_dev.module_override(
         "@com_github_buildbarn_bb_remote_execution//:patches/com_github_hanwen_go_fuse_v2/notify-testability.diff",
     ],
     path = "github.com/hanwen/go-fuse/v2",
-)
-
-bazel_dep(name = "toolchains_cc")
-git_override(
-    module_name = "toolchains_cc",
-    commit = "f4eee86cfe43d10c78cc6be9b61720ac59bacecc",
-    remote = "https://github.com/reutermj/toolchains_cc.git",
-)
-
-register_toolchains(
-    "@toolchains_cc",
-    dev_dependency = True,
 )
