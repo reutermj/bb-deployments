@@ -40,6 +40,30 @@ class TestClient:
         except OSError:
             return False
 
+    def receive(self, timeout: float) -> Optional[str]:
+        """Wait for and receive a message from the server.
+
+        Args:
+            timeout: Maximum time to wait in seconds.
+
+        Returns:
+            The message string, or None if timeout expired or error.
+        """
+        if self._socket is None:
+            return None
+        try:
+            self._socket.settimeout(timeout)
+            buffer = b""
+            while b"\n" not in buffer:
+                data = self._socket.recv(4096)
+                if not data:
+                    return None
+                buffer += data
+            line, _ = buffer.split(b"\n", 1)
+            return line.decode("utf-8").strip()
+        except (OSError, socket.timeout):
+            return None
+
     def close(self) -> None:
         """Close the connection."""
         if self._socket:

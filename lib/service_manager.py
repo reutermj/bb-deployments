@@ -38,7 +38,7 @@ def default_services(config_dir: str) -> list[ServiceConfig]:
         ServiceConfig("runner", f"{config_dir}/runner.jsonnet", BINARY_RUNNER),
     ]
 
-REQUIRED_DIRS = [
+DEFAULT_DIRS = [
     "storage-ac",
     "storage-ac/persistent_state",
     "storage-cas",
@@ -59,9 +59,11 @@ class ServiceManager:
         self,
         working_dir: str,
         services: list[ServiceConfig],
+        extra_dirs: list[str] | None = None,
     ):
         self.working_dir = working_dir
         self.services = services
+        self.dirs = DEFAULT_DIRS + (extra_dirs or [])
         self._runfiles = runfiles.Create()
         self._processes: list[tuple[ServiceConfig, subprocess.Popen]] = []
 
@@ -74,7 +76,7 @@ class ServiceManager:
 
     def _create_directories(self) -> None:
         """Create required directories for Buildbarn."""
-        for d in REQUIRED_DIRS:
+        for d in self.dirs:
             path = Path(self.working_dir) / d
             path.mkdir(parents=True, exist_ok=True)
 

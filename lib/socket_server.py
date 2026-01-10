@@ -3,7 +3,16 @@
 import socket
 import threading
 import time
+from dataclasses import dataclass
 from typing import Optional
+
+
+@dataclass
+class Message:
+    """A message received from a client, with the connection for replies."""
+
+    content: str
+    connection: socket.socket
 
 
 class SocketServer:
@@ -25,7 +34,7 @@ class SocketServer:
         self._port = port
         self._actual_port: Optional[int] = None
         self._socket: Optional[socket.socket] = None
-        self._messages: list[str] = []
+        self._messages: list[Message] = []
         self._lock = threading.Lock()
         self._condition = threading.Condition(self._lock)
         self._accept_thread: Optional[threading.Thread] = None
@@ -67,22 +76,25 @@ class SocketServer:
 
     def _handle_connection(self, conn: socket.socket) -> None:
         """Handle a single connection, receiving messages."""
-        try:
-            buffer = b""
-            while True:
+        buffer = b""
+        while self._running:
+            try:
+                conn.settimeout(1.0)
                 data = conn.recv(4096)
                 if not data:
                     break
                 buffer += data
                 while b"\n" in buffer:
                     line, buffer = buffer.split(b"\n", 1)
-                    message = line.decode("utf-8").strip()
-                    if message:
+                    content = line.decode("utf-8").strip()
+                    if content:
                         with self._condition:
-                            self._messages.append(message)
+                            self._messages.append(Message(content, conn))
                             self._condition.notify_all()
-        finally:
-            conn.close()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
 
     def stop(self) -> None:
         """Stop the server and clean up."""
@@ -96,13 +108,25 @@ class SocketServer:
             self._accept_thread.join(timeout=2.0)
 
     def wait_for_message(self, timeout: float) -> Optional[str]:
-        """Wait for and return a single message.
+        """Wait for and return a single message content.
 
         Args:
             timeout: Maximum time to wait in seconds.
 
         Returns:
             The message string, or None if timeout expired.
+        """
+        msg = self.wait_for_message_with_conn(timeout)
+        return msg.content if msg else None
+
+    def wait_for_message_with_conn(self, timeout: float) -> Optional[Message]:
+        """Wait for and return a message with its connection.
+
+        Args:
+            timeout: Maximum time to wait in seconds.
+
+        Returns:
+            The Message object (content + connection), or None if timeout expired.
         """
         deadline = time.time() + timeout
         with self._condition:
@@ -112,6 +136,23 @@ class SocketServer:
                     return None
                 self._condition.wait(timeout=remaining)
             return self._messages.pop(0)
+
+    @staticmethod
+    def reply(msg: Message, response: str) -> bool:
+        """Send a response to a client.
+
+        Args:
+            msg: The message to reply to.
+            response: The response string to send.
+
+        Returns:
+            True on success, False on failure.
+        """
+        try:
+            msg.connection.sendall((response + "\n").encode("utf-8"))
+            return True
+        except OSError:
+            return False
 
     def __enter__(self) -> "SocketServer":
         self.start()
