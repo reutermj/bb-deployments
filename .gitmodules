@@ -1,0 +1,3 @@
+[submodule "bb-remote-execution"]
+	path = bb-remote-execution
+	url = https://github.com/reutermj/bb-remote-execution
