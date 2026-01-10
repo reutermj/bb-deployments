@@ -2,10 +2,8 @@ local common = import 'common.libsonnet';
 
 {
   blobstore: common.blobstore,
-  browserUrl: common.browserUrl,
   maximumMessageSizeBytes: common.maximumMessageSizeBytes,
   scheduler: { address: 'localhost:8983' },
-  global: common.globalWithDiagnosticsHttpServer(':9986'),
   buildDirectories: [
     {
       native: {

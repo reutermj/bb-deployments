@@ -26,14 +26,6 @@ git_override(
     remote = "https://github.com/buildbarn/go-xdr.git",
 )
 
-# Probably wont deploy
-bazel_dep(name = "com_github_buildbarn_bb_browser")
-git_override(
-    module_name = "com_github_buildbarn_bb_browser",
-    commit = "9886820de1cc9ad4183bf765266161260d514d91",
-    remote = "https://github.com/buildbarn/bb-browser.git",
-)
-
 ###############################################################################
 # Required toolchain to build the services
 ###############################################################################
@@ -125,10 +117,6 @@ go_deps_dev = use_extension("@gazelle//:extensions.bzl", "go_deps", dev_dependen
 go_deps_dev.gazelle_override(
     build_file_generation = "on",
     path = "github.com/cncf/xds/go",
-)
-go_deps_dev.module_override(
-    patches = ["@com_github_buildbarn_bb_browser//:patches/com_github_buildkite_terminal_to_html/assets.diff"],
-    path = "github.com/buildkite/terminal-to-html",
 )
 go_deps_dev.gazelle_override(
     build_file_generation = "on",

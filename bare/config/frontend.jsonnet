@@ -20,7 +20,6 @@ local common = import 'common.libsonnet';
     },
   },
   maximumMessageSizeBytes: common.maximumMessageSizeBytes,
-  global: common.globalWithDiagnosticsHttpServer(':9980'),
   contentAddressableStorage: {
     backend: common.blobstore.contentAddressableStorage,
     getAuthorizer: { allow: {} },

@@ -6,7 +6,6 @@ local common = import 'common.libsonnet';
     authenticationPolicy: { allow: {} },
   }],
   maximumMessageSizeBytes: common.maximumMessageSizeBytes,
-  global: common.globalWithDiagnosticsHttpServer(':9981'),
   contentAddressableStorage: {
     backend: {
       'local': {
