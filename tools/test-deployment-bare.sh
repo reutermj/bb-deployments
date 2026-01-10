@@ -9,7 +9,7 @@ script_dir=$(dirname "${BASH_SOURCE[0]}")
 root="$(realpath "$script_dir"/..)"
 cd "$root"
 
-abseil_output_base="abseil_output_base"
+test_output_base="test_output_base"
 bare_output="bb-output.txt"
 
 working_directory="$root"/tmp-test-bare
@@ -52,23 +52,23 @@ cleanup() {
     if [ "$EXIT_STATUS" -ne "0" ]; then
         cat "$bare_output" || true
     fi
-    bazel --output_base="$abseil_output_base" shutdown
-    rm -rf "$data"
-    rm -rf "$abseil_output_base"
-    rm -rf "$working_directory"
+    bazel --output_base="$test_output_base" shutdown
+    # Some Python toolchain files have restrictive permissions; fix before removing.
+    chmod -R u+w "$data" "$test_output_base" "$working_directory" 2>/dev/null || true
+    rm -rf "$data" "$test_output_base" "$working_directory"
     exit "$EXIT_STATUS"
 }
 trap cleanup EXIT
 
 # --- Run remote execution ---
-bazel --output_base="$abseil_output_base" clean
-bazel --output_base="$abseil_output_base" \
+bazel --output_base="$test_output_base" clean
+bazel --output_base="$test_output_base" \
     test --color=no --curses=no $remote_exec_config --disk_cache= \
-    @abseil-hello//:hello_test
+    //test_project:all_tests
 # Make sure there are remote executions but no cache hits.
-# INFO: 39 processes: 9 internal, 30 remote.
+# INFO: 8 processes: 2 internal, 6 remote.
 grep -E '^INFO: [0-9]+ processes: .*[0-9]+ remote[.,]' \
-    "$abseil_output_base/command.log" \
+    "$test_output_base/command.log" \
     | grep -v 'remote cache hit'
 
 # --- Check that we get cache hit even after rebooting the server ---
@@ -78,12 +78,12 @@ $script_exec 2>"${bare_output}" &
 buildbarn_pid=$!
 sleep 5
 
-bazel --output_base="$abseil_output_base" clean
-bazel --output_base="$abseil_output_base"  \
+bazel --output_base="$test_output_base" clean
+bazel --output_base="$test_output_base"  \
     test --color=no --curses=no $remote_exec_config --disk_cache= \
-    @abseil-hello//:hello_test
+    //test_project:all_tests
 # Make sure there are remote cache hits but no remote executions.
-# INFO: 39 processes: 30 remote cache hit, 9 internal.
+# INFO: 8 processes: 6 remote cache hit, 2 internal.
 grep -E '^INFO: [0-9]+ processes: .*[0-9]+ remote cache hit[.,]' \
-    "$abseil_output_base/command.log" \
+    "$test_output_base/command.log" \
     | grep -v 'remote[,.]'

@@ -70,24 +70,6 @@ git_override(
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
 ###############################################################################
-# I think this is just for testing the bare deployment
-###############################################################################
-bazel_dep(name = "abseil-cpp", version = "20250127.0")
-bazel_dep(name = "googleapis", version = "0.0.0-20250703-f9d6fe4a")
-bazel_dep(name = "googletest", version = "1.16.0")
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
-    name = "abseil-hello",
-    patch_cmds = [
-        "sed -i 's/com_google_absl/abseil-cpp/' BUILD.bazel",
-        "sed -i 's/com_google_googletest/googletest/' BUILD.bazel",
-    ],
-    sha256 = "e676640e69e210636de795f571237bec09a9ad9af6e441bf56f0d193cfe1c9fc",
-    strip_prefix = "abseil-hello-b4803b41ab3d58c503265148e5a7d3fd2a8e46d3/bazel-hello",
-    urls = ["https://github.com/abseil/abseil-hello/archive/b4803b41ab3d58c503265148e5a7d3fd2a8e46d3.zip"],
-)
-
-###############################################################################
 # Python for the bare deployment launcher
 ###############################################################################
 bazel_dep(name = "rules_python", version = "1.7.0")
