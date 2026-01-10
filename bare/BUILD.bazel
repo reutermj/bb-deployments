@@ -1,20 +1,13 @@
-load("@rules_go//go:def.bzl", "go_binary", "go_library")
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
 filegroup(
     name = "config",
     srcs = glob(["config/**"]),
 )
 
-go_library(
-    name = "go_default_library",
-    srcs = ["main.go"],
-    importpath = "github.com/buildbarn/bb-deployments/bare",
-    visibility = ["//visibility:public"],
-    deps = ["@rules_go//go/runfiles:go_default_library"],
-)
-
-go_binary(
+py_binary(
     name = "bare",
+    srcs = ["main.py"],
     data = [
         ":config",
         "@com_github_buildbarn_bb_remote_execution//cmd/bb_runner",
@@ -22,6 +15,9 @@ go_binary(
         "@com_github_buildbarn_bb_remote_execution//cmd/bb_worker",
         "@com_github_buildbarn_bb_storage//cmd/bb_storage",
     ],
-    embed = [":go_default_library"],
+    main = "main.py",
     visibility = ["//visibility:public"],
+    deps = [
+        "@rules_python//python/runfiles",
+    ],
 )

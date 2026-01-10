@@ -3,7 +3,6 @@
 
 set -eux -o pipefail -E
 
-bazel clean --expunge
 rm -rf tmp-test-bare
 
 script_dir=$(dirname "${BASH_SOURCE[0]}")
