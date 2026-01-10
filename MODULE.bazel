@@ -4,10 +4,9 @@ module(name = "com_github_buildbarn_bb_deployments")
 # Buildbarn Services
 ###############################################################################
 bazel_dep(name = "com_github_buildbarn_bb_remote_execution")
-git_override(
+local_path_override(
     module_name = "com_github_buildbarn_bb_remote_execution",
-    commit = "babfe8f73772adb40306ee23546d3f827d120998",
-    remote = "https://github.com/buildbarn/bb-remote-execution.git",
+    path = "bb-remote-execution",
 )
 
 bazel_dep(name = "com_github_buildbarn_bb_storage")
