@@ -2,9 +2,6 @@ module github.com/buildbarn/bb-deployments
 
 go 1.24.5
 
-// https://github.com/grpc-ecosystem/grpc-gateway/commit/5f9757f31b517d98095209636b2b88cd6326572f
-// replace github.com/grpc-ecosystem/grpc-gateway/v2 => github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.1
-
 // https://github.com/bazel-contrib/rules_go/issues/4170
 replace golang.org/x/tools => golang.org/x/tools v0.26.0
 
@@ -19,12 +16,8 @@ replace github.com/hanwen/go-fuse/v2 => github.com/hanwen/go-fuse/v2 v2.5.1
 replace cloud.google.com/go/storage v1.45.0 => cloud.google.com/go/storage v1.43.0
 
 require (
-	github.com/bazelbuild/buildtools v0.0.0-20250715102656-62b9413b08bb
-	github.com/bazelbuild/rules_go v0.56.1
 	github.com/buildbarn/bb-remote-execution v0.0.0-20250820081613-efef252cdf4f
 	github.com/buildbarn/bb-storage v0.0.0-20250827121715-fbb7c11d3502
-	golang.org/x/lint v0.0.0-20241112194109-818c5a804067
-	mvdan.cc/gofumpt v0.8.0
 )
 
 require (

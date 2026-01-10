@@ -117,12 +117,6 @@ go_sdk.download(version = "1.24.5")
 
 go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
 go_deps.from_file(go_mod = "//:go.mod")
-use_repo(
-    go_deps,
-    "cc_mvdan_gofumpt",
-    "com_github_bazelbuild_buildtools",
-    "org_golang_x_lint",
-)
 
 go_deps_dev = use_extension("@gazelle//:extensions.bzl", "go_deps", dev_dependency = True)
 
@@ -149,10 +143,6 @@ go_deps_dev.gazelle_override(
 go_deps_dev.module_override(
     patches = ["@com_github_buildbarn_bb_storage//:patches/org_golang_google_genproto_googleapis_bytestream/service-registrar.diff"],
     path = "google.golang.org/genproto/googleapis/bytestream",
-)
-go_deps_dev.module_override(
-    patches = ["@com_github_buildbarn_bb_storage//:patches/org_golang_x_lint/generic.diff"],
-    path = "golang.org/x/lint",
 )
 go_deps_dev.module_override(
     patches = ["//:patches/org_golang_x_sys/o-search.diff"],

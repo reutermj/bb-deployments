@@ -1,11 +1,4 @@
 load("@buildifier_prebuilt//:rules.bzl", "buildifier")
-load("@gazelle//:def.bzl", "gazelle")
-
-# gazelle:prefix github.com/buildbarn/bb-deployments
-# gazelle:exclude dummy_for_dependencies.go
-gazelle(
-    name = "gazelle",
-)
 
 buildifier(
     name = "buildifier.check",
