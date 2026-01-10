@@ -12,7 +12,6 @@ bazel_dep(name = "googletest", version = "1.16.0")
 bazel_dep(name = "rules_antlr")
 bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_go", version = "0.56.1")
-bazel_dep(name = "rules_jsonnet", version = "0.7.2")
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
@@ -37,19 +36,19 @@ git_override(
 
 git_override(
     module_name = "com_github_buildbarn_bb_browser",
-    commit = "823deb2f4b072d5e0d86b6260819b5f3755e6aba",
+    commit = "9886820de1cc9ad4183bf765266161260d514d91",
     remote = "https://github.com/buildbarn/bb-browser.git",
 )
 
 git_override(
     module_name = "com_github_buildbarn_bb_remote_execution",
-    commit = "efef252cdf4f97cc0154ea02976ed1322587e599",
+    commit = "babfe8f73772adb40306ee23546d3f827d120998",
     remote = "https://github.com/buildbarn/bb-remote-execution.git",
 )
 
 git_override(
     module_name = "com_github_buildbarn_bb_storage",
-    commit = "fbb7c11d3502dbd1ee72a5d6a5a92ef532ee3c6e",
+    commit = "51e1a67922e22d65445f43aa809636cb481644f3",
     remote = "https://github.com/buildbarn/bb-storage.git",
 )
 
