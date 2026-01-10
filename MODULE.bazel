@@ -43,8 +43,7 @@ http_archive(
 
 git_override(
     module_name = "bazel_remote_apis",
-    commit = "9ef19c6b5fbf77d6dd9d84d75fbb5a20a6b62ef1",  # bb-storage
-    # commit = "e94a7ece2a1e8da1dcf278a0baf2edfe7baafb94",  # bb-remote-execution
+    commit = "3051389c06348307437e92e3a1d3c6d6566094b4",
     remote = "https://github.com/bazelbuild/remote-apis.git",
 )
 
