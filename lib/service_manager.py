@@ -17,39 +17,26 @@ class ServiceConfig:
     """Configuration for a Buildbarn service."""
 
     name: str
-    config: str
+    config: str  # Full runfiles path to config, e.g., "_main/tests/foo/config/storage.jsonnet"
     binary: str
 
 
-# Pre-defined service configurations
-STORAGE = ServiceConfig(
-    name="storage",
-    config="_main/bare/config/storage.jsonnet",
-    binary="com_github_buildbarn_bb_storage+/cmd/bb_storage/bb_storage_/bb_storage",
-)
-FRONTEND = ServiceConfig(
-    name="frontend",
-    config="_main/bare/config/frontend.jsonnet",
-    binary="com_github_buildbarn_bb_storage+/cmd/bb_storage/bb_storage_/bb_storage",
-)
-SCHEDULER = ServiceConfig(
-    name="scheduler",
-    config="_main/bare/config/scheduler.jsonnet",
-    binary="com_github_buildbarn_bb_remote_execution+/cmd/bb_scheduler/bb_scheduler_/bb_scheduler",
-)
-WORKER = ServiceConfig(
-    name="worker",
-    config="_main/bare/config/worker.jsonnet",
-    binary="com_github_buildbarn_bb_remote_execution+/cmd/bb_worker/bb_worker_/bb_worker",
-)
-RUNNER = ServiceConfig(
-    name="runner",
-    config="_main/bare/config/runner.jsonnet",
-    binary="com_github_buildbarn_bb_remote_execution+/cmd/bb_runner/bb_runner_/bb_runner",
-)
+# Binary paths for each service type
+BINARY_STORAGE = "com_github_buildbarn_bb_storage+/cmd/bb_storage/bb_storage_/bb_storage"
+BINARY_SCHEDULER = "com_github_buildbarn_bb_remote_execution+/cmd/bb_scheduler/bb_scheduler_/bb_scheduler"
+BINARY_WORKER = "com_github_buildbarn_bb_remote_execution+/cmd/bb_worker/bb_worker_/bb_worker"
+BINARY_RUNNER = "com_github_buildbarn_bb_remote_execution+/cmd/bb_runner/bb_runner_/bb_runner"
 
-# Default service list
-DEFAULT_SERVICES = [STORAGE, FRONTEND, SCHEDULER, WORKER, RUNNER]
+
+def default_services(config_dir: str) -> list[ServiceConfig]:
+    """Create the default service list for a given config directory."""
+    return [
+        ServiceConfig("storage", f"{config_dir}/storage.jsonnet", BINARY_STORAGE),
+        ServiceConfig("frontend", f"{config_dir}/frontend.jsonnet", BINARY_STORAGE),
+        ServiceConfig("scheduler", f"{config_dir}/scheduler.jsonnet", BINARY_SCHEDULER),
+        ServiceConfig("worker", f"{config_dir}/worker.jsonnet", BINARY_WORKER),
+        ServiceConfig("runner", f"{config_dir}/runner.jsonnet", BINARY_RUNNER),
+    ]
 
 REQUIRED_DIRS = [
     "storage-ac",
@@ -68,9 +55,13 @@ STARTUP_WAIT = 5
 class ServiceManager:
     """Manages Buildbarn service lifecycle for testing."""
 
-    def __init__(self, working_dir: str, services: list[ServiceConfig] | None = None):
+    def __init__(
+        self,
+        working_dir: str,
+        services: list[ServiceConfig],
+    ):
         self.working_dir = working_dir
-        self.services = services if services is not None else DEFAULT_SERVICES
+        self.services = services
         self._runfiles = runfiles.Create()
         self._processes: list[tuple[ServiceConfig, subprocess.Popen]] = []
 

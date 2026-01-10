@@ -11,11 +11,12 @@ import subprocess
 import sys
 import tempfile
 
-from lib.service_manager import ServiceManager
+from lib.service_manager import ServiceManager, default_services
 from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
 
 TEST_PORT = 9876
+CONFIG_DIR = "_main/tests/cache_hit/config"
 
 def run_bazel_test(workspace: str, output_base: str) -> bool:
     """Run bazel test with remote execution config.
@@ -48,7 +49,7 @@ def main() -> int:
         with SocketServer(TEST_PORT) as server:
             print(f"Socket server listening on port {TEST_PORT}")
 
-            services = ServiceManager(working_dir)
+            services = ServiceManager(working_dir, default_services(CONFIG_DIR))
 
             if not services.start():
                 print("FAIL: Could not start Buildbarn services")

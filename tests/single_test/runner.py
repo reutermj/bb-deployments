@@ -1,4 +1,4 @@
-"""Remote execution test runner.
+"""Single test runner.
 
 This test validates that a test binary executes remotely and sends
 the expected message back to the runner.
@@ -10,11 +10,12 @@ import subprocess
 import sys
 import tempfile
 
-from lib.service_manager import ServiceManager
+from lib.service_manager import ServiceManager, default_services
 from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
 
 TEST_PORT = 9877
+CONFIG_DIR = "_main/tests/single_test/config"
 
 def run_bazel_test(workspace: str, output_base: str) -> bool:
     """Run bazel test with remote execution config."""
@@ -24,7 +25,7 @@ def run_bazel_test(workspace: str, output_base: str) -> bool:
         "test",
         "--config=remote-local",
         "--disk_cache=",
-        "//tests/remote_execution:test",
+        "//tests/single_test:test",
     ]
 
     result = subprocess.run(cmd, cwd=workspace)
@@ -35,7 +36,7 @@ def main() -> int:
     workspace = find_workspace_root()
     print(f"Workspace root: {workspace}")
 
-    working_dir = tempfile.mkdtemp(prefix="bb-test-remote-exec-")
+    working_dir = tempfile.mkdtemp(prefix="bb-test-single-")
     output_base = os.path.join(working_dir, "bazel-output")
 
     print(f"Working directory: {working_dir}")
@@ -44,7 +45,7 @@ def main() -> int:
         with SocketServer(TEST_PORT) as server:
             print(f"Socket server listening on port {TEST_PORT}")
 
-            services = ServiceManager(working_dir)
+            services = ServiceManager(working_dir, default_services(CONFIG_DIR))
 
             if not services.start():
                 print("FAIL: Could not start Buildbarn services")
