@@ -3,6 +3,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_binary")
 filegroup(
     name = "config",
     srcs = glob(["config/**"]),
+    visibility = ["//visibility:public"],
 )
 
 py_binary(

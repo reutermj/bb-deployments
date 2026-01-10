@@ -1,0 +1,41 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+py_library(
+    name = "socket_server",
+    srcs = ["socket_server.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "test_client",
+    srcs = ["test_client.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "service_manager",
+    srcs = ["service_manager.py"],
+    data = [
+        "//bare:config",
+        "@com_github_buildbarn_bb_remote_execution//cmd/bb_runner",
+        "@com_github_buildbarn_bb_remote_execution//cmd/bb_scheduler",
+        "@com_github_buildbarn_bb_remote_execution//cmd/bb_worker",
+        "@com_github_buildbarn_bb_storage//cmd/bb_storage",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@rules_python//python/runfiles",
+    ],
+)
+
+py_library(
+    name = "workspace",
+    srcs = ["workspace.py"],
+    data = [
+        "//:MODULE.bazel",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@rules_python//python/runfiles",
+    ],
+)
