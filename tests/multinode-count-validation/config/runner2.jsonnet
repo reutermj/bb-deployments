@@ -1,9 +1,9 @@
 local common = import 'common.libsonnet';
 
 {
-  buildDirectoryPath: std.extVar('PWD') + '/worker/build',
+  buildDirectoryPath: std.extVar('PWD') + '/worker2/build',
   grpcServers: [{
-    listenPaths: ['worker/runner'],
+    listenPaths: ['worker2/runner'],
     authenticationPolicy: { allow: {} },
   }],
 }

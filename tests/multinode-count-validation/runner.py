@@ -21,11 +21,40 @@ import sys
 import tempfile
 from typing import NamedTuple
 
-from lib.service_manager import ServiceManager, default_services
+from lib.service_manager import (
+    BINARY_RUNNER,
+    BINARY_SCHEDULER,
+    BINARY_STORAGE,
+    BINARY_WORKER,
+    ServiceConfig,
+    ServiceManager,
+)
 from lib.workspace import find_workspace_root
 
 
 CONFIG_DIR = "_main/tests/multinode-count-validation/config"
+
+# Services for multinode validation test: 4 worker/runner pairs
+# to support multinode_count=4 tests
+SERVICES = [
+    ServiceConfig("storage", f"{CONFIG_DIR}/storage.jsonnet", BINARY_STORAGE),
+    ServiceConfig("frontend", f"{CONFIG_DIR}/frontend.jsonnet", BINARY_STORAGE),
+    ServiceConfig("scheduler", f"{CONFIG_DIR}/scheduler.jsonnet", BINARY_SCHEDULER),
+]
+
+# Add 4 worker/runner pairs
+for i in range(1, 5):
+    SERVICES.append(
+        ServiceConfig(f"worker{i}", f"{CONFIG_DIR}/worker{i}.jsonnet", BINARY_WORKER)
+    )
+    SERVICES.append(
+        ServiceConfig(f"runner{i}", f"{CONFIG_DIR}/runner{i}.jsonnet", BINARY_RUNNER)
+    )
+
+# Extra directories for the 4 workers
+EXTRA_DIRS = []
+for i in range(1, 5):
+    EXTRA_DIRS.extend([f"worker{i}", f"worker{i}/build", f"worker{i}/cache"])
 
 
 class TestCase(NamedTuple):
@@ -88,6 +117,7 @@ def run_bazel_test(
         "--config=remote-local",
         "--remote_executor=grpc://localhost:9080",
         "--disk_cache=",
+        "--test_timeout=30",
         target,
     ]
 
@@ -155,7 +185,7 @@ def main() -> int:
     print(f"Working directory: {working_dir}")
 
     try:
-        services = ServiceManager(working_dir, default_services(CONFIG_DIR))
+        services = ServiceManager(working_dir, SERVICES, EXTRA_DIRS)
 
         if not services.start():
             print("FAIL: Could not start Buildbarn services")
@@ -165,27 +195,17 @@ def main() -> int:
             print("\n=== Running multinode_count validation tests ===")
             print(f"Running {len(TEST_CASES)} test cases")
 
-            passed = 0
-            failed = 0
-
             for test_case in TEST_CASES:
                 if test_case.should_fail:
                     success = run_rejection_test(workspace, output_base, test_case)
                 else:
                     success = run_valid_test(workspace, output_base, test_case)
 
-                if success:
-                    passed += 1
-                else:
-                    failed += 1
+                if not success:
+                    print(f"\nFAIL: Test '{test_case.name}' failed - aborting")
+                    return 1
 
             print("\n" + "=" * 50)
-            print(f"Results: {passed} passed, {failed} failed")
-
-            if failed > 0:
-                print("FAIL: Some tests failed")
-                return 1
-
             print("PASS: All multinode_count validation tests passed")
 
         finally:
