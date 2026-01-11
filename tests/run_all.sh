@@ -7,6 +7,7 @@ TESTS=(
     "//tests/single_test:runner"
     "//tests/single_failure_test:runner"
     "//tests/cache_hit:runner"
+    "//tests/deduplication:runner"
     "//tests/1-worker-2-sequential:runner"
     "//tests/2-worker-2-parallel:runner"
     "//tests/platform-routing:runner"

@@ -1,0 +1,159 @@
+"""Deduplication test runner.
+
+This test validates that the scheduler deduplicates identical actions.
+
+Setup:
+- 2 separate bazel clients requesting the SAME test target simultaneously
+- Both use different output bases but request the same action
+
+Expected behavior:
+- Only 1 STARTED message received (action executes once)
+- Both bazel clients succeed (both receive the same result)
+
+This validates the in-flight deduplication described in ARCHITECTURE.md:
+when two clients request the same action, the scheduler only executes
+it once and returns the same result to both.
+"""
+
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+
+from lib.service_manager import ServiceManager, default_services
+from lib.socket_server import SocketServer
+from lib.workspace import find_workspace_root
+
+TEST_PORT = 9880
+CONFIG_DIR = "_main/tests/deduplication/config"
+
+
+def run_bazel_test(workspace: str, output_base: str) -> subprocess.Popen:
+    """Start bazel test with remote execution config.
+
+    Returns the Popen object (non-blocking).
+    """
+    cmd = [
+        "bazel",
+        f"--output_base={output_base}",
+        "test",
+        "--config=remote-local",
+        "--disk_cache=",
+        "//tests/deduplication:test1",
+    ]
+
+    return subprocess.Popen(cmd, cwd=workspace)
+
+
+def main() -> int:
+    workspace = find_workspace_root()
+    print(f"Workspace root: {workspace}")
+
+    working_dir = tempfile.mkdtemp(prefix="bb-test-dedup-")
+    output_base1 = os.path.join(working_dir, "bazel-output1")
+    output_base2 = os.path.join(working_dir, "bazel-output2")
+
+    print(f"Working directory: {working_dir}")
+
+    try:
+        with SocketServer(TEST_PORT) as server:
+            print(f"Socket server listening on port {TEST_PORT}")
+
+            services = ServiceManager(working_dir, default_services(CONFIG_DIR))
+
+            if not services.start():
+                print("FAIL: Could not start Buildbarn services")
+                return 1
+
+            try:
+                print("\n=== Running deduplication test ===")
+                print("Launching 2 bazel clients for the SAME test target...")
+                print("Expected: Only 1 execution (deduplicated)")
+
+                # Start both bazel clients for the same test
+                bazel_proc1 = run_bazel_test(workspace, output_base1)
+                bazel_proc2 = run_bazel_test(workspace, output_base2)
+
+                # Wait for first STARTED message
+                print("\n--- Waiting for STARTED message ---")
+                msg = server.wait_for_message_with_conn(60)
+                if msg is None:
+                    print("FAIL: Timeout waiting for STARTED message")
+                    bazel_proc1.terminate()
+                    bazel_proc2.terminate()
+                    return 1
+
+                if msg.content != "STARTED":
+                    print(f"FAIL: Expected STARTED, got: {msg.content}")
+                    bazel_proc1.terminate()
+                    bazel_proc2.terminate()
+                    return 1
+
+                print("Received first STARTED message")
+
+                # Wait briefly to see if a second STARTED arrives (it shouldn't)
+                print("\n--- Checking for duplicate execution (should timeout) ---")
+                msg2 = server.wait_for_message_with_conn(3)
+                if msg2 is not None:
+                    print(f"FAIL: Got second STARTED message - deduplication failed!")
+                    print(f"Second message: {msg2.content}")
+                    bazel_proc1.terminate()
+                    bazel_proc2.terminate()
+                    return 1
+
+                print("PASS: No second execution (deduplication working)")
+
+                # Continue the single execution
+                print("\n--- Continuing the deduplicated execution ---")
+                if not SocketServer.reply(msg, "CONTINUE"):
+                    print("FAIL: Could not send CONTINUE")
+                    bazel_proc1.terminate()
+                    bazel_proc2.terminate()
+                    return 1
+
+                # Wait for both bazel clients to finish
+                print("Waiting for both bazel clients to complete...")
+                bazel_proc1.wait()
+                bazel_proc2.wait()
+
+                if bazel_proc1.returncode != 0:
+                    print(f"FAIL: Bazel client 1 failed with code {bazel_proc1.returncode}")
+                    return 1
+
+                if bazel_proc2.returncode != 0:
+                    print(f"FAIL: Bazel client 2 failed with code {bazel_proc2.returncode}")
+                    return 1
+
+                print("PASS: Both bazel clients succeeded with single execution")
+
+            finally:
+                services.stop()
+
+        # Shutdown both bazel servers
+        subprocess.run(
+            ["bazel", f"--output_base={output_base1}", "shutdown"],
+            cwd=workspace,
+            check=False,
+        )
+        subprocess.run(
+            ["bazel", f"--output_base={output_base2}", "shutdown"],
+            cwd=workspace,
+            check=False,
+        )
+
+        print("\n=== Test passed ===")
+        print("Verified: In-flight deduplication works correctly")
+        print("- Identical actions execute only once")
+        print("- Both clients receive the same result")
+        return 0
+
+    finally:
+        try:
+            shutil.rmtree(working_dir)
+        except Exception as e:
+            print(f"Warning: Failed to cleanup {working_dir}: {e}")
+
+
+if __name__ == "__main__":
+    sys.exit(main())
