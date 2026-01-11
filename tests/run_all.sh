@@ -11,6 +11,7 @@
 #   no-workers-for-platform:        9070-9074
 #   multinode-count-validation:     9080-9084
 #   concurrency:                    9090-9094
+#   multinode-concurrency:          9100-9104
 
 set -e
 
@@ -25,6 +26,7 @@ TESTS=(
     "//tests/no-workers-for-platform:runner"
     "//tests/multinode-count-validation:runner"
     "//tests/concurrency:runner"
+    "//tests/multinode-concurrency:runner"
 )
 
 echo "Running ${#TESTS[@]} tests in parallel..."

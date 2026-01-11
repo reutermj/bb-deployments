@@ -1,0 +1,40 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
+
+# Test targets for multinode concurrency test.
+# Each test uses exec_properties to set multinode_count.
+# The test binary sends STARTED with its task index and waits for CONTINUE.
+
+py_test(
+    name = "test_multinode_2",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    exec_properties = {"multinode_count": "2"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test_multinode_4",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    exec_properties = {"multinode_count": "4"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test_multinode_8",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    exec_properties = {"multinode_count": "8"},
+    deps = ["//lib:test_client"],
+)
+
+py_binary(
+    name = "runner",
+    srcs = ["runner.py"],
+    data = glob(["config/*.jsonnet"]) + glob(["config/*.libsonnet"]),
+    deps = [
+        "//lib:service_manager",
+        "//lib:socket_server",
+        "//lib:workspace",
+    ],
+)
