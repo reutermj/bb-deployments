@@ -103,7 +103,7 @@ def test_multinode_concurrent_execution(
     started_count = 0
     connections = []
     start_time = time.time()
-    timeout = 120  # seconds - multinode scheduling may take longer
+    timeout = 60  # seconds
 
     print(f"\n--- Waiting for {multinode_count} tasks to start ---")
 
