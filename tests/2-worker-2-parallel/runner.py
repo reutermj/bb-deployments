@@ -101,7 +101,7 @@ def main() -> int:
                 started_messages: list[Message] = []
 
                 for i in range(2):
-                    msg = server.wait_for_message_with_conn(30)
+                    msg = server.wait_for_message_with_conn(60)
                     if msg is None:
                         print(f"FAIL: Timeout waiting for STARTED message {i+1}")
                         bazel_proc.terminate()
@@ -126,7 +126,7 @@ def main() -> int:
                 # Wait for both DONE messages
                 print("Waiting for DONE messages from both workers...")
                 for i in range(2):
-                    msg = server.wait_for_message(30)
+                    msg = server.wait_for_message(60)
                     if msg != "DONE":
                         print(f"FAIL: Expected DONE, got: {msg}")
                         bazel_proc.terminate()

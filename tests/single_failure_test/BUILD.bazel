@@ -11,10 +11,14 @@ py_test(
     main = "test_binary.py",
 )
 
-py_binary(
+py_test(
     name = "runner",
+    tags = ["local"],
+    size = "large",
+    timeout = "long",
     srcs = ["runner.py"],
     data = glob(["config/*.jsonnet"]) + glob(["config/*.libsonnet"]),
+    env_inherit = ["HOME"],
     deps = [
         "//lib:service_manager",
         "//lib:workspace",
