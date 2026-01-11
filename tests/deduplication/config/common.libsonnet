@@ -2,14 +2,14 @@
   blobstore: {
     contentAddressableStorage: {
       grpc: {
-        address: 'localhost:8981',
+        address: 'localhost:9031',
       },
     },
     actionCache: {
       completenessChecking: {
         backend: {
           grpc: {
-            address: 'localhost:8981',
+            address: 'localhost:9031',
           },
         },
         maximumTotalTreeSizeBytes: 64 * 1024 * 1024,

@@ -2,13 +2,13 @@ local common = import 'common.libsonnet';
 
 {
   grpcServers: [{
-    listenAddresses: [':8980'],
+    listenAddresses: [':9020'],
     authenticationPolicy: { allow: {} },
   }],
   schedulers: {
     '': {
       endpoint: {
-        address: 'localhost:8982',
+        address: 'localhost:9022',
         addMetadataJmespathExpression: {
           expression: |||
             {

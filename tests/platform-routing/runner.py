@@ -40,7 +40,7 @@ from lib.service_manager import (
 from lib.socket_server import Message, SocketServer
 from lib.workspace import find_workspace_root
 
-TEST_PORT = 9878
+TEST_PORT = 9883
 CONFIG_DIR = "_main/tests/platform-routing/config"
 
 # Services: 2 workers with different platforms
@@ -75,6 +75,7 @@ def run_bazel_tests(workspace: str, output_base: str) -> subprocess.Popen:
         f"--output_base={output_base}",
         "test",
         "--config=remote-local",
+        "--remote_executor=grpc://localhost:9060",
         "--disk_cache=",
         "--jobs=3",
         "//tests/platform-routing:test_arch1_a",

@@ -26,7 +26,7 @@ from lib.service_manager import (
 from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
 
-TEST_PORT = 9878
+TEST_PORT = 9881
 CONFIG_DIR = "_main/tests/1-worker-2-sequential/config"
 
 # Services for sequential test: single worker with concurrency=1
@@ -50,6 +50,7 @@ def run_bazel_tests(workspace: str, output_base: str) -> subprocess.Popen:
         f"--output_base={output_base}",
         "test",
         "--config=remote-local",
+        "--remote_executor=grpc://localhost:9040",
         "--disk_cache=",
         "--jobs=2",
         "//tests/1-worker-2-sequential:test1",

@@ -25,7 +25,7 @@ from lib.service_manager import (
 from lib.socket_server import Message, SocketServer
 from lib.workspace import find_workspace_root
 
-TEST_PORT = 9878
+TEST_PORT = 9882
 CONFIG_DIR = "_main/tests/2-worker-2-parallel/config"
 
 # Services for parallel test: 2 worker/runner pairs
@@ -61,6 +61,7 @@ def run_bazel_tests(workspace: str, output_base: str) -> subprocess.Popen:
         f"--output_base={output_base}",
         "test",
         "--config=remote-local",
+        "--remote_executor=grpc://localhost:9050",
         "--disk_cache=",
         "--jobs=2",
         "//tests/2-worker-2-parallel:test1",

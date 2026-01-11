@@ -3,7 +3,7 @@ local common = import 'common.libsonnet';
 {
   blobstore: common.blobstore,
   maximumMessageSizeBytes: common.maximumMessageSizeBytes,
-  scheduler: { address: 'localhost:8983' },
+  scheduler: { address: 'localhost:9023' },
   buildDirectories: [
     {
       native: {

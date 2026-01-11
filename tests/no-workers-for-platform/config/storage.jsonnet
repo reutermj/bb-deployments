@@ -2,7 +2,7 @@ local common = import 'common.libsonnet';
 
 {
   grpcServers: [{
-    listenAddresses: [':8981'],
+    listenAddresses: [':9071'],
     authenticationPolicy: { allow: {} },
   }],
   maximumMessageSizeBytes: common.maximumMessageSizeBytes,

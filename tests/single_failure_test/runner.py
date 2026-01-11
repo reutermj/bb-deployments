@@ -31,6 +31,7 @@ def run_bazel_test(workspace: str, output_base: str) -> int:
         f"--output_base={output_base}",
         "test",
         "--config=remote-local",
+        "--remote_executor=grpc://localhost:9010",
         "--disk_cache=",
         "//tests/single_failure_test:test",
     ]

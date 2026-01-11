@@ -2,15 +2,15 @@ local common = import 'common.libsonnet';
 
 {
   adminHttpServers: [{
-    listenAddresses: [':7982'],
+    listenAddresses: [':9054'],
     authenticationPolicy: { allow: {} },
   }],
   clientGrpcServers: [{
-    listenAddresses: [':8982'],
+    listenAddresses: [':9052'],
     authenticationPolicy: { allow: {} },
   }],
   workerGrpcServers: [{
-    listenAddresses: [':8983'],
+    listenAddresses: [':9053'],
     authenticationPolicy: { allow: {} },
   }],
   contentAddressableStorage: common.blobstore.contentAddressableStorage,
