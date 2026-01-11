@@ -29,9 +29,9 @@ Port allocation: 9110-9114
 """
 
 import sys
-import time
 
 from lib.bazel_runner import run_bazel_test
+from lib.message_coordination import wait_for_test_group
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
@@ -39,7 +39,6 @@ from lib.service_manager import (
     BINARY_WORKER,
     ServiceConfig,
 )
-from lib.socket_server import SocketServer
 from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
 TEST_PORT = 9886
@@ -68,53 +67,6 @@ EXTRA_DIRS = [
 ]
 
 
-def wait_for_test_started(
-    server: SocketServer, test_id: str, timeout: float
-) -> list | None:
-    """Wait for both nodes of a specific test to send STARTED.
-
-    Returns list of connection messages if successful, None on timeout/error.
-    """
-    connections = []
-    start_time = time.time()
-
-    while len(connections) < 2:
-        remaining = timeout - (time.time() - start_time)
-        if remaining <= 0:
-            print(f"FAIL: Timeout waiting for test {test_id} to start")
-            return None
-
-        msg = server.wait_for_message_with_conn(remaining)
-        if msg is None:
-            print(f"FAIL: Timeout waiting for message from test {test_id}")
-            return None
-
-        expected = f"STARTED:{test_id}"
-        if msg.content == expected:
-            connections.append(msg)
-            print(f"  Received {msg.content} ({len(connections)}/2)")
-        else:
-            # This message is from a different test, we'll handle it later
-            # For now, just log it - in the actual flow this shouldn't happen
-            # because we process tests sequentially
-            print(f"  Received unexpected message: {msg.content} (expected {expected})")
-            # Still add it if it's a STARTED message for any test
-            if msg.content.startswith("STARTED:"):
-                connections.append(msg)
-                print(f"  (counting it anyway: {len(connections)}/2)")
-
-    return connections
-
-
-def continue_test(connections: list) -> bool:
-    """Send CONTINUE to all connections for a test."""
-    for msg in connections:
-        if not SocketServer.reply(msg, "CONTINUE"):
-            print("FAIL: Could not send CONTINUE")
-            return False
-    return True
-
-
 def test_multinode_scheduling(ctx: TestContextWithSocket) -> int:
     """Run the multinode scheduling test."""
     print("\n=== Running multinode scheduling test ===")
@@ -136,8 +88,8 @@ def test_multinode_scheduling(ctx: TestContextWithSocket) -> int:
 
     # Wait for first 2-node test (TEST_ID=1) to start
     print("\n--- Waiting for test 1 (2 nodes) to start ---")
-    test1_conns = wait_for_test_started(ctx.server, "1", timeout=60)
-    if test1_conns is None:
+    test1_group = wait_for_test_group(ctx.server, "1", count=2, timeout=60)
+    if test1_group is None:
         bazel_proc.terminate()
         return 1
 
@@ -145,7 +97,8 @@ def test_multinode_scheduling(ctx: TestContextWithSocket) -> int:
 
     # Continue the first test
     print("--- Sending CONTINUE to test 1 ---")
-    if not continue_test(test1_conns):
+    if not test1_group.continue_all():
+        print("FAIL: Could not send CONTINUE")
         bazel_proc.terminate()
         return 1
 
@@ -153,8 +106,8 @@ def test_multinode_scheduling(ctx: TestContextWithSocket) -> int:
 
     # Wait for second 2-node test (TEST_ID=2) to start
     print("\n--- Waiting for test 2 (2 nodes) to start ---")
-    test2_conns = wait_for_test_started(ctx.server, "2", timeout=60)
-    if test2_conns is None:
+    test2_group = wait_for_test_group(ctx.server, "2", count=2, timeout=60)
+    if test2_group is None:
         bazel_proc.terminate()
         return 1
 
@@ -162,7 +115,8 @@ def test_multinode_scheduling(ctx: TestContextWithSocket) -> int:
 
     # Continue the second test
     print("--- Sending CONTINUE to test 2 ---")
-    if not continue_test(test2_conns):
+    if not test2_group.continue_all():
+        print("FAIL: Could not send CONTINUE")
         bazel_proc.terminate()
         return 1
 

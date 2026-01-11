@@ -12,6 +12,7 @@ The second STARTED message proves the first test completed and freed the worker.
 import sys
 
 from lib.bazel_runner import run_bazel_test
+from lib.message_coordination import wait_for_started_messages
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
@@ -19,7 +20,6 @@ from lib.service_manager import (
     BINARY_WORKER,
     ServiceConfig,
 )
-from lib.socket_server import SocketServer
 from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
 TEST_PORT = 9881
@@ -55,20 +55,15 @@ def test_sequential_execution(ctx: TestContextWithSocket) -> int:
 
     # === First test execution ===
     print("\n--- Waiting for first test to start ---")
-    msg1 = ctx.server.wait_for_message_with_conn(60)
-    if msg1 is None:
-        print("FAIL: Timeout waiting for first STARTED message")
-        bazel_proc.terminate()
-        return 1
-    if msg1.content != "STARTED":
-        print(f"FAIL: Expected STARTED, got: {msg1.content}")
+    first_msg = wait_for_started_messages(ctx.server, count=1, timeout=60)
+    if first_msg is None:
         bazel_proc.terminate()
         return 1
     print("PASS: First test started")
 
     # Send CONTINUE to first test (it will exit after receiving this)
     print("Sending CONTINUE to first test...")
-    if not SocketServer.reply(msg1, "CONTINUE"):
+    if not first_msg.continue_all():
         print("FAIL: Could not send CONTINUE to first test")
         bazel_proc.terminate()
         return 1
@@ -76,20 +71,15 @@ def test_sequential_execution(ctx: TestContextWithSocket) -> int:
     # === Second test execution ===
     print("\n--- Waiting for second test to start ---")
     print("(This validates that the second test was queued and scheduled after the first)")
-    msg2 = ctx.server.wait_for_message_with_conn(60)
-    if msg2 is None:
-        print("FAIL: Timeout waiting for second STARTED message")
-        bazel_proc.terminate()
-        return 1
-    if msg2.content != "STARTED":
-        print(f"FAIL: Expected STARTED, got: {msg2.content}")
+    second_msg = wait_for_started_messages(ctx.server, count=1, timeout=60)
+    if second_msg is None:
         bazel_proc.terminate()
         return 1
     print("PASS: Second test started (was queued and scheduled after first)")
 
     # Send CONTINUE to second test
     print("Sending CONTINUE to second test...")
-    if not SocketServer.reply(msg2, "CONTINUE"):
+    if not second_msg.continue_all():
         print("FAIL: Could not send CONTINUE to second test")
         bazel_proc.terminate()
         return 1

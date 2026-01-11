@@ -10,6 +10,7 @@ This test validates that:
 import sys
 
 from lib.bazel_runner import run_bazel_test
+from lib.message_coordination import expect_message, run_and_collect_started
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
@@ -17,7 +18,6 @@ from lib.service_manager import (
     BINARY_WORKER,
     ServiceConfig,
 )
-from lib.socket_server import Message, SocketServer
 from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
 TEST_PORT = 9882
@@ -64,37 +64,23 @@ def test_parallel_execution(ctx: TestContextWithSocket) -> int:
 
     # Wait for both STARTED messages
     print("Waiting for STARTED messages from both workers...")
-    started_messages: list[Message] = []
-
-    for i in range(2):
-        msg = ctx.server.wait_for_message_with_conn(60)
-        if msg is None:
-            print(f"FAIL: Timeout waiting for STARTED message {i+1}")
-            bazel_proc.terminate()
-            return 1
-        if msg.content != "STARTED":
-            print(f"FAIL: Expected STARTED, got: {msg.content}")
-            bazel_proc.terminate()
-            return 1
-        print(f"Received STARTED message {i+1}")
-        started_messages.append(msg)
+    collected = run_and_collect_started(ctx.server, bazel_proc, count=2)
+    if collected is None:
+        return 1
 
     print("PASS: Both workers started")
 
     # Send CONTINUE to both workers
     print("Sending CONTINUE to both workers...")
-    for i, msg in enumerate(started_messages):
-        if not SocketServer.reply(msg, "CONTINUE"):
-            print(f"FAIL: Could not send CONTINUE to worker {i+1}")
-            bazel_proc.terminate()
-            return 1
+    if not collected.continue_all():
+        print("FAIL: Could not send CONTINUE")
+        bazel_proc.terminate()
+        return 1
 
     # Wait for both DONE messages
     print("Waiting for DONE messages from both workers...")
     for i in range(2):
-        msg = ctx.server.wait_for_message(60)
-        if msg != "DONE":
-            print(f"FAIL: Expected DONE, got: {msg}")
+        if not expect_message(ctx.server, "DONE", timeout=60):
             bazel_proc.terminate()
             return 1
         print(f"Received DONE message {i+1}")

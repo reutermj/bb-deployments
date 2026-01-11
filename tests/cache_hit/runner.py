@@ -15,6 +15,7 @@ import sys
 import tempfile
 
 from lib.bazel_runner import run_bazel_test_sync, shutdown_bazel
+from lib.message_coordination import expect_message, expect_no_message
 from lib.service_manager import ServiceManager, default_services
 from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
@@ -57,12 +58,8 @@ def main() -> int:
                     print("FAIL: Bazel test failed on first run")
                     return 1
 
-                message = server.wait_for_message(10)
-                if message != "EXECUTED":
-                    print(f"FAIL: Expected EXECUTED message, got: {message}")
+                if not expect_message(server, "EXECUTED", timeout=10):
                     return 1
-
-                print(f"PASS: Received expected message: {message}")
 
                 # === Phase 2: Restart services and expect cache hit ===
                 print("\n=== Phase 2: Second run (expect cache hit) ===")
@@ -90,12 +87,8 @@ def main() -> int:
                     return 1
 
                 # Short timeout since we expect no message (cache hit)
-                message = server.wait_for_message(5)
-                if message is not None:
-                    print(f"FAIL: Expected no message (cache hit), got: {message}")
+                if not expect_no_message(server, timeout=5, description="execution message"):
                     return 1
-
-                print("PASS: No message received (cache hit)")
 
             finally:
                 services.stop()

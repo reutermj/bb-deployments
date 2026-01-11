@@ -7,6 +7,7 @@ the expected message back to the runner.
 import sys
 
 from lib.bazel_runner import run_bazel_test_sync
+from lib.message_coordination import expect_message
 from lib.service_manager import default_services
 from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
@@ -29,12 +30,9 @@ def test_single_execution(ctx: TestContextWithSocket) -> int:
         print("FAIL: Bazel test failed")
         return 1
 
-    message = ctx.server.wait_for_message(10)
-    if message != "EXECUTED":
-        print(f"FAIL: Expected EXECUTED message, got: {message}")
+    if not expect_message(ctx.server, "EXECUTED", timeout=10):
         return 1
 
-    print(f"PASS: Received expected message: {message}")
     print("\n=== Test passed ===")
     return 0
 

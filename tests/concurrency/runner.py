@@ -16,9 +16,9 @@ Port allocation: 9090-9094
 """
 
 import sys
-import time
 
 from lib.bazel_runner import run_bazel_test
+from lib.message_coordination import run_and_collect_started
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
@@ -26,7 +26,6 @@ from lib.service_manager import (
     BINARY_WORKER,
     ServiceConfig,
 )
-from lib.socket_server import SocketServer
 from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
 TEST_PORT = 9884
@@ -62,46 +61,19 @@ def test_concurrent_execution(ctx: TestContextWithSocket, num_jobs: int) -> bool
     )
 
     # Collect all STARTED messages
-    started_tests = []
-    connections = []
-    start_time = time.time()
-    timeout = 60  # seconds
-
     print(f"\n--- Waiting for {num_jobs} tests to start ---")
-
-    while len(started_tests) < num_jobs:
-        remaining = timeout - (time.time() - start_time)
-        if remaining <= 0:
-            print("FAIL: Timeout waiting for all tests to start")
-            print(f"Only received {len(started_tests)} of {num_jobs} STARTED messages")
-            bazel_proc.terminate()
-            return False
-
-        msg = ctx.server.wait_for_message_with_conn(remaining)
-        if msg is None:
-            print("FAIL: Timeout waiting for STARTED message")
-            bazel_proc.terminate()
-            return False
-
-        if msg.content.startswith("STARTED:"):
-            test_id = msg.content.split(":")[1]
-            started_tests.append(test_id)
-            connections.append(msg)
-            print(f"  Received STARTED from test{test_id} ({len(started_tests)}/{num_jobs})")
-        else:
-            print(f"FAIL: Unexpected message: {msg.content}")
-            bazel_proc.terminate()
-            return False
+    collected = run_and_collect_started(ctx.server, bazel_proc, num_jobs)
+    if collected is None:
+        return False
 
     print(f"\nAll {num_jobs} tests started - verified concurrent execution")
 
     # Now send CONTINUE to all tests
     print(f"\n--- Sending CONTINUE to all {num_jobs} tests ---")
-    for msg in connections:
-        if not SocketServer.reply(msg, "CONTINUE"):
-            print("FAIL: Could not send CONTINUE")
-            bazel_proc.terminate()
-            return False
+    if not collected.continue_all():
+        print("FAIL: Could not send CONTINUE")
+        bazel_proc.terminate()
+        return False
 
     # Wait for bazel to finish
     bazel_proc.wait()

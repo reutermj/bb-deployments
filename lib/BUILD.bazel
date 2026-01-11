@@ -57,3 +57,12 @@ py_library(
         ":workspace",
     ],
 )
+
+py_library(
+    name = "message_coordination",
+    srcs = ["message_coordination.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":socket_server",
+    ],
+)

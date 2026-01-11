@@ -18,9 +18,9 @@ Port allocation: 9100-9104
 """
 
 import sys
-import time
 
 from lib.bazel_runner import run_bazel_test
+from lib.message_coordination import run_and_collect_started
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
@@ -28,7 +28,6 @@ from lib.service_manager import (
     BINARY_WORKER,
     ServiceConfig,
 )
-from lib.socket_server import SocketServer
 from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
 TEST_PORT = 9885
@@ -80,47 +79,19 @@ def test_multinode_concurrent_execution(
     )
 
     # Collect all STARTED messages
-    started_count = 0
-    connections = []
-    start_time = time.time()
-    timeout = 60  # seconds
-
     print(f"\n--- Waiting for {multinode_count} tasks to start ---")
-
-    while started_count < multinode_count:
-        remaining = timeout - (time.time() - start_time)
-        if remaining <= 0:
-            print("FAIL: Timeout waiting for all tasks to start")
-            print(
-                f"Only received {started_count} of {multinode_count} STARTED messages"
-            )
-            bazel_proc.terminate()
-            return False
-
-        msg = ctx.server.wait_for_message_with_conn(remaining)
-        if msg is None:
-            print("FAIL: Timeout waiting for STARTED message")
-            bazel_proc.terminate()
-            return False
-
-        if msg.content == "STARTED":
-            started_count += 1
-            connections.append(msg)
-            print(f"  Received STARTED ({started_count}/{multinode_count})")
-        else:
-            print(f"FAIL: Unexpected message: {msg.content}")
-            bazel_proc.terminate()
-            return False
+    collected = run_and_collect_started(ctx.server, bazel_proc, multinode_count)
+    if collected is None:
+        return False
 
     print(f"\nAll {multinode_count} tasks started - verified concurrent execution")
 
     # Now send CONTINUE to all tasks
     print(f"\n--- Sending CONTINUE to all {multinode_count} tasks ---")
-    for msg in connections:
-        if not SocketServer.reply(msg, "CONTINUE"):
-            print("FAIL: Could not send CONTINUE")
-            bazel_proc.terminate()
-            return False
+    if not collected.continue_all():
+        print("FAIL: Could not send CONTINUE")
+        bazel_proc.terminate()
+        return False
 
     # Wait for bazel to finish
     bazel_proc.wait()

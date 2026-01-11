@@ -26,6 +26,10 @@ This validates:
 import sys
 
 from lib.bazel_runner import run_bazel_test
+from lib.message_coordination import (
+    expect_no_message,
+    wait_for_started_messages,
+)
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
@@ -85,23 +89,15 @@ def test_platform_routing(ctx: TestContextWithSocket) -> int:
     print("\n--- Phase 1: Waiting for initial tests to start ---")
     print("Expecting one test on each arch...")
 
-    first_messages: dict[str, Message] = {}  # test_id -> Message
+    collected = wait_for_started_messages(ctx.server, count=2, timeout=60)
+    if collected is None:
+        bazel_proc.terminate()
+        return 1
 
-    # Wait for 2 STARTED messages (one per arch)
-    for i in range(2):
-        msg = ctx.server.wait_for_message_with_conn(60)
-        if msg is None:
-            print(f"FAIL: Timeout waiting for STARTED message {i+1}")
-            bazel_proc.terminate()
-            return 1
-
-        if not msg.content.startswith("STARTED:"):
-            print(f"FAIL: Expected STARTED:<id>, got: {msg.content}")
-            bazel_proc.terminate()
-            return 1
-
-        test_id = msg.content.split(":", 1)[1]
-        print(f"Received STARTED from {test_id}")
+    # Build mapping of test_id -> Message
+    first_messages: dict[str, Message] = {}
+    for i, msg in enumerate(collected.messages):
+        test_id = collected.test_ids[i]
         first_messages[test_id] = msg
 
     # Validate we got one from each platform type
@@ -135,14 +131,9 @@ def test_platform_routing(ctx: TestContextWithSocket) -> int:
     print("\n--- Phase 3: Verify no misrouting ---")
     print("Waiting 5s to confirm arch2 worker doesn't pick up arch1 work...")
 
-    # Wait briefly - if arch1's second test gets misrouted, it would start now
-    misrouted_msg = ctx.server.wait_for_message_with_conn(5)
-    if misrouted_msg is not None:
-        print(f"FAIL: Got unexpected message (possible misrouting): {misrouted_msg.content}")
+    if not expect_no_message(ctx.server, timeout=5, description="misrouted message"):
         bazel_proc.terminate()
         return 1
-
-    print("PASS: No misrouting detected (timeout as expected)")
 
     # === Phase 4: Continue first arch1 test ===
     print("\n--- Phase 4: Continue first arch1 test ---")
@@ -157,18 +148,12 @@ def test_platform_routing(ctx: TestContextWithSocket) -> int:
     print("\n--- Phase 5: Wait for second arch1 test ---")
     print("The queued arch1 test should now start on arch1 worker...")
 
-    msg = ctx.server.wait_for_message_with_conn(60)
-    if msg is None:
-        print("FAIL: Timeout waiting for second arch1 test")
+    second_collected = wait_for_started_messages(ctx.server, count=1, timeout=60)
+    if second_collected is None:
         bazel_proc.terminate()
         return 1
 
-    if not msg.content.startswith("STARTED:"):
-        print(f"FAIL: Expected STARTED:<id>, got: {msg.content}")
-        bazel_proc.terminate()
-        return 1
-
-    second_arch1_test = msg.content.split(":", 1)[1]
+    second_arch1_test = second_collected.test_ids[0]
     print(f"Received STARTED from {second_arch1_test}")
 
     if not second_arch1_test.startswith("arch1"):
@@ -187,7 +172,7 @@ def test_platform_routing(ctx: TestContextWithSocket) -> int:
     print("\n--- Phase 6: Continue second arch1 test ---")
     print(f"Continuing {second_arch1_test}...")
 
-    if not SocketServer.reply(msg, "CONTINUE"):
+    if not second_collected.continue_all():
         print(f"FAIL: Could not send CONTINUE to {second_arch1_test}")
         bazel_proc.terminate()
         return 1

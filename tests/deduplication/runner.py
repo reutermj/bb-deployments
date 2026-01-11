@@ -24,6 +24,7 @@ import sys
 import tempfile
 
 from lib.bazel_runner import run_bazel_test, shutdown_bazel_servers
+from lib.message_coordination import expect_no_message, wait_for_started_messages
 from lib.service_manager import ServiceManager, default_services
 from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
@@ -74,15 +75,8 @@ def main() -> int:
 
                 # Wait for first STARTED message
                 print("\n--- Waiting for STARTED message ---")
-                msg = server.wait_for_message_with_conn(60)
-                if msg is None:
-                    print("FAIL: Timeout waiting for STARTED message")
-                    bazel_proc1.terminate()
-                    bazel_proc2.terminate()
-                    return 1
-
-                if msg.content != "STARTED":
-                    print(f"FAIL: Expected STARTED, got: {msg.content}")
+                collected = wait_for_started_messages(server, count=1, timeout=60)
+                if collected is None:
                     bazel_proc1.terminate()
                     bazel_proc2.terminate()
                     return 1
@@ -91,10 +85,9 @@ def main() -> int:
 
                 # Wait briefly to see if a second STARTED arrives (it shouldn't)
                 print("\n--- Checking for duplicate execution (should timeout) ---")
-                msg2 = server.wait_for_message_with_conn(3)
-                if msg2 is not None:
-                    print("FAIL: Got second STARTED message - deduplication failed!")
-                    print(f"Second message: {msg2.content}")
+                if not expect_no_message(
+                    server, timeout=3, description="second STARTED (deduplication failed)"
+                ):
                     bazel_proc1.terminate()
                     bazel_proc2.terminate()
                     return 1
@@ -103,7 +96,7 @@ def main() -> int:
 
                 # Continue the single execution
                 print("\n--- Continuing the deduplicated execution ---")
-                if not SocketServer.reply(msg, "CONTINUE"):
+                if not collected.continue_all():
                     print("FAIL: Could not send CONTINUE")
                     bazel_proc1.terminate()
                     bazel_proc2.terminate()

@@ -30,6 +30,7 @@ py_test(
     env_inherit = ["HOME"],
     deps = [
         "//lib:bazel_runner",
+        "//lib:message_coordination",
         "//lib:service_manager",
         "//lib:socket_server",
         "//lib:workspace",
