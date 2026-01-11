@@ -1,14 +1,15 @@
 #!/bin/bash
 # Run all tests in parallel
 # Each test uses a different set of ports so they can run simultaneously:
-#   single_test:             9000-9004
-#   single_failure_test:     9010-9014
-#   cache_hit:               9020-9024
-#   deduplication:           9030-9034
-#   1-worker-2-sequential:   9040-9044
-#   2-worker-2-parallel:     9050-9054
-#   platform-routing:        9060-9064
-#   no-workers-for-platform: 9070-9074
+#   single_test:                    9000-9004
+#   single_failure_test:            9010-9014
+#   cache_hit:                      9020-9024
+#   deduplication:                  9030-9034
+#   1-worker-2-sequential:          9040-9044
+#   2-worker-2-parallel:            9050-9054
+#   platform-routing:               9060-9064
+#   no-workers-for-platform:        9070-9074
+#   multinode-count-validation:     9080-9084
 
 set -e
 
@@ -21,6 +22,7 @@ TESTS=(
     "//tests/2-worker-2-parallel:runner"
     "//tests/platform-routing:runner"
     "//tests/no-workers-for-platform:runner"
+    "//tests/multinode-count-validation:runner"
 )
 
 echo "Running ${#TESTS[@]} tests in parallel..."
