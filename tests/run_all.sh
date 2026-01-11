@@ -10,6 +10,7 @@
 #   platform-routing:               9060-9064
 #   no-workers-for-platform:        9070-9074
 #   multinode-count-validation:     9080-9084
+#   concurrency:                    9090-9094
 
 set -e
 
@@ -23,6 +24,7 @@ TESTS=(
     "//tests/platform-routing:runner"
     "//tests/no-workers-for-platform:runner"
     "//tests/multinode-count-validation:runner"
+    "//tests/concurrency:runner"
 )
 
 echo "Running ${#TESTS[@]} tests in parallel..."

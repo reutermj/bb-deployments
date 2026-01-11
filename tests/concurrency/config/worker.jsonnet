@@ -3,7 +3,7 @@ local common = import 'common.libsonnet';
 {
   blobstore: common.blobstore,
   maximumMessageSizeBytes: common.maximumMessageSizeBytes,
-  scheduler: { address: 'localhost:9033' },
+  scheduler: { address: 'localhost:9093' },
   buildDirectories: [
     {
       native: {
@@ -15,7 +15,7 @@ local common = import 'common.libsonnet';
       },
       runners: [{
         endpoint: { address: 'unix:worker/runner' },
-        concurrency: 1,
+        concurrency: 8,  // Allow 8 concurrent jobs on this worker
         maximumFilePoolFileCount: 10000,
         maximumFilePoolSizeBytes: 1024 * 1024 * 1024,
         platform: {},

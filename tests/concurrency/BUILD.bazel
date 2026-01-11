@@ -1,0 +1,79 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
+
+# Test targets for concurrency test.
+# Each test uses a unique TEST_ID to identify itself.
+
+py_test(
+    name = "test1",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "1"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test2",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "2"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test3",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "3"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test4",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "4"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test5",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "5"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test6",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "6"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test7",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "7"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test8",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "8"},
+    deps = ["//lib:test_client"],
+)
+
+py_binary(
+    name = "runner",
+    srcs = ["runner.py"],
+    data = glob(["config/*.jsonnet"]) + glob(["config/*.libsonnet"]),
+    deps = [
+        "//lib:service_manager",
+        "//lib:socket_server",
+        "//lib:workspace",
+    ],
+)

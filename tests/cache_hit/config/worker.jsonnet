@@ -15,7 +15,7 @@ local common = import 'common.libsonnet';
       },
       runners: [{
         endpoint: { address: 'unix:worker/runner' },
-        concurrency: 8,
+        concurrency: 1,
         maximumFilePoolFileCount: 10000,
         maximumFilePoolSizeBytes: 1024 * 1024 * 1024,
         platform: {},
