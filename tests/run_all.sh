@@ -11,6 +11,7 @@ TESTS=(
     "//tests/1-worker-2-sequential:runner"
     "//tests/2-worker-2-parallel:runner"
     "//tests/platform-routing:runner"
+    "//tests/no-workers-for-platform:runner"
 )
 
 echo "Running ${#TESTS[@]} tests..."

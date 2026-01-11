@@ -1,0 +1,20 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
+
+# Test target requesting a platform that has no workers.
+# This test should never execute - the scheduler should reject it.
+py_test(
+    name = "test",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    exec_properties = {"arch": "nonexistent"},
+)
+
+py_binary(
+    name = "runner",
+    srcs = ["runner.py"],
+    data = glob(["config/*.jsonnet"]) + glob(["config/*.libsonnet"]),
+    deps = [
+        "//lib:service_manager",
+        "//lib:workspace",
+    ],
+)
