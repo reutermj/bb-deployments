@@ -18,7 +18,7 @@ import tempfile
 from lib.service_manager import ServiceManager, default_services
 from lib.workspace import find_workspace_root
 
-CONFIG_DIR = "_main/tests/test-failure/config"
+CONFIG_DIR = "_main/tests/single_failure_test/config"
 
 
 def run_bazel_test(workspace: str, output_base: str) -> int:
@@ -32,7 +32,7 @@ def run_bazel_test(workspace: str, output_base: str) -> int:
         "test",
         "--config=remote-local",
         "--disk_cache=",
-        "//tests/test-failure:test",
+        "//tests/single_failure_test:test",
     ]
 
     result = subprocess.run(cmd, cwd=workspace)
