@@ -1,3 +1,6 @@
 [submodule "bb-remote-execution"]
 	path = bb-remote-execution
 	url = https://github.com/reutermj/bb-remote-execution
+[submodule "bb-storage"]
+	path = bb-storage
+	url = https://github.com/buildbarn/bb-storage
