@@ -1,4 +1,4 @@
-e#!/bin/bash
+#!/bin/bash
 # Run all tests in parallel
 # Each test uses a different set of ports so they can run simultaneously:
 #   single_test:             9000-9004
