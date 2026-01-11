@@ -1,0 +1,55 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
+
+py_binary(
+    name = "test_binary",
+    srcs = ["test_binary.py"],
+    deps = [
+        "//lib:test_client",
+    ],
+)
+
+# Tests targeting arch1 platform
+py_test(
+    name = "test_arch1_a",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "arch1_a"},
+    exec_properties = {"arch": "arch1"},
+    deps = [
+        "//lib:test_client",
+    ],
+)
+
+py_test(
+    name = "test_arch1_b",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "arch1_b"},
+    exec_properties = {"arch": "arch1"},
+    deps = [
+        "//lib:test_client",
+    ],
+)
+
+# Test targeting arch2 platform
+py_test(
+    name = "test_arch2",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "arch2"},
+    exec_properties = {"arch": "arch2"},
+    deps = [
+        "//lib:test_client",
+    ],
+)
+
+py_binary(
+    name = "runner",
+    srcs = ["runner.py"],
+    data = glob(["config/*.jsonnet"]) + glob(["config/*.libsonnet"]),
+    deps = [
+        "//lib:service_manager",
+        "//lib:socket_server",
+        "//lib:workspace",
+    ],
+)
