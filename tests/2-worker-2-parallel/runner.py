@@ -9,11 +9,10 @@ This test validates that:
 
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
-import threading
 
+from lib.bazel_runner import run_bazel_test, shutdown_bazel
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
@@ -26,6 +25,7 @@ from lib.socket_server import Message, SocketServer
 from lib.workspace import find_workspace_root
 
 TEST_PORT = 9882
+EXECUTOR_PORT = 9050
 CONFIG_DIR = "_main/tests/2-worker-2-parallel/config"
 
 # Services for parallel test: 2 worker/runner pairs
@@ -48,27 +48,6 @@ EXTRA_DIRS = [
     "worker2/build",
     "worker2/cache",
 ]
-
-
-def run_bazel_tests(workspace: str, output_base: str) -> subprocess.Popen:
-    """Start bazel test with remote execution config.
-
-    Runs 2 test targets in parallel.
-    Returns the Popen object (non-blocking).
-    """
-    cmd = [
-        "bazel",
-        f"--output_base={output_base}",
-        "test",
-        "--config=remote-local",
-        "--remote_executor=grpc://localhost:9050",
-        "--disk_cache=",
-        "--jobs=2",
-        "//tests/2-worker-2-parallel:test1",
-        "//tests/2-worker-2-parallel:test2",
-    ]
-
-    return subprocess.Popen(cmd, cwd=workspace)
 
 
 def main() -> int:
@@ -94,7 +73,16 @@ def main() -> int:
                 print("\n=== Running parallel execution test ===")
 
                 # Start bazel tests (non-blocking)
-                bazel_proc = run_bazel_tests(workspace, output_base)
+                bazel_proc = run_bazel_test(
+                    workspace,
+                    output_base,
+                    [
+                        "//tests/2-worker-2-parallel:test1",
+                        "//tests/2-worker-2-parallel:test2",
+                    ],
+                    EXECUTOR_PORT,
+                    extra_flags=["--jobs=2"],
+                )
 
                 # Wait for both STARTED messages
                 print("Waiting for STARTED messages from both workers...")
@@ -144,11 +132,7 @@ def main() -> int:
             finally:
                 services.stop()
 
-        subprocess.run(
-            ["bazel", f"--output_base={output_base}", "shutdown"],
-            cwd=workspace,
-            check=False,
-        )
+        shutdown_bazel(workspace, output_base)
 
         print("\n=== All tests passed ===")
         return 0

@@ -17,34 +17,17 @@ it once and returns the same result to both.
 
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 
+from lib.bazel_runner import run_bazel_test, shutdown_bazel_servers
 from lib.service_manager import ServiceManager, default_services
 from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
 
 TEST_PORT = 9880
+EXECUTOR_PORT = 9030
 CONFIG_DIR = "_main/tests/deduplication/config"
-
-
-def run_bazel_test(workspace: str, output_base: str) -> subprocess.Popen:
-    """Start bazel test with remote execution config.
-
-    Returns the Popen object (non-blocking).
-    """
-    cmd = [
-        "bazel",
-        f"--output_base={output_base}",
-        "test",
-        "--config=remote-local",
-        "--remote_executor=grpc://localhost:9030",
-        "--disk_cache=",
-        "//tests/deduplication:test1",
-    ]
-
-    return subprocess.Popen(cmd, cwd=workspace)
 
 
 def main() -> int:
@@ -73,8 +56,18 @@ def main() -> int:
                 print("Expected: Only 1 execution (deduplicated)")
 
                 # Start both bazel clients for the same test
-                bazel_proc1 = run_bazel_test(workspace, output_base1)
-                bazel_proc2 = run_bazel_test(workspace, output_base2)
+                bazel_proc1 = run_bazel_test(
+                    workspace,
+                    output_base1,
+                    ["//tests/deduplication:test1"],
+                    EXECUTOR_PORT,
+                )
+                bazel_proc2 = run_bazel_test(
+                    workspace,
+                    output_base2,
+                    ["//tests/deduplication:test1"],
+                    EXECUTOR_PORT,
+                )
 
                 # Wait for first STARTED message
                 print("\n--- Waiting for STARTED message ---")
@@ -97,7 +90,7 @@ def main() -> int:
                 print("\n--- Checking for duplicate execution (should timeout) ---")
                 msg2 = server.wait_for_message_with_conn(3)
                 if msg2 is not None:
-                    print(f"FAIL: Got second STARTED message - deduplication failed!")
+                    print("FAIL: Got second STARTED message - deduplication failed!")
                     print(f"Second message: {msg2.content}")
                     bazel_proc1.terminate()
                     bazel_proc2.terminate()
@@ -132,16 +125,7 @@ def main() -> int:
                 services.stop()
 
         # Shutdown both bazel servers
-        subprocess.run(
-            ["bazel", f"--output_base={output_base1}", "shutdown"],
-            cwd=workspace,
-            check=False,
-        )
-        subprocess.run(
-            ["bazel", f"--output_base={output_base2}", "shutdown"],
-            cwd=workspace,
-            check=False,
-        )
+        shutdown_bazel_servers(workspace, [output_base1, output_base2])
 
         print("\n=== Test passed ===")
         print("Verified: In-flight deduplication works correctly")

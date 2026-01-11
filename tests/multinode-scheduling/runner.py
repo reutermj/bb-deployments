@@ -30,11 +30,11 @@ Port allocation: 9110-9114
 
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 import time
 
+from lib.bazel_runner import run_bazel_test, shutdown_bazel
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
@@ -47,6 +47,7 @@ from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
 
 TEST_PORT = 9886
+EXECUTOR_PORT = 9110
 CONFIG_DIR = "_main/tests/multinode-scheduling/config"
 
 # Services for multinode scheduling test: 2 worker/runner pairs with concurrency=1
@@ -69,27 +70,6 @@ EXTRA_DIRS = [
     "worker2/build",
     "worker2/cache",
 ]
-
-
-def run_bazel_test(workspace: str, output_base: str) -> subprocess.Popen:
-    """Start bazel test with remote execution config.
-
-    Runs both 2-node test targets in a single bazel invocation.
-    Returns the Popen object (non-blocking).
-    """
-    cmd = [
-        "bazel",
-        f"--output_base={output_base}",
-        "test",
-        "--config=remote-local",
-        "--remote_executor=grpc://localhost:9110",
-        "--disk_cache=",
-        "--nocache_test_results",
-        "//tests/multinode-scheduling:test_2node_1",
-        "//tests/multinode-scheduling:test_2node_2",
-    ]
-
-    return subprocess.Popen(cmd, cwd=workspace)
 
 
 def wait_for_test_started(
@@ -167,7 +147,16 @@ def main() -> int:
 
                 # Start bazel test (non-blocking) - schedules both 2-node tests
                 print("\n--- Starting bazel test with both 2-node tests ---")
-                bazel_proc = run_bazel_test(workspace, output_base)
+                bazel_proc = run_bazel_test(
+                    workspace,
+                    output_base,
+                    [
+                        "//tests/multinode-scheduling:test_2node_1",
+                        "//tests/multinode-scheduling:test_2node_2",
+                    ],
+                    EXECUTOR_PORT,
+                    extra_flags=["--nocache_test_results"],
+                )
 
                 # Wait for first 2-node test (TEST_ID=1) to start
                 print("\n--- Waiting for test 1 (2 nodes) to start ---")
@@ -176,7 +165,7 @@ def main() -> int:
                     bazel_proc.terminate()
                     return 1
 
-                print(f"Test 1: Both nodes started")
+                print("Test 1: Both nodes started")
 
                 # Continue the first test
                 print("--- Sending CONTINUE to test 1 ---")
@@ -193,7 +182,7 @@ def main() -> int:
                     bazel_proc.terminate()
                     return 1
 
-                print(f"Test 2: Both nodes started")
+                print("Test 2: Both nodes started")
 
                 # Continue the second test
                 print("--- Sending CONTINUE to test 2 ---")
@@ -215,11 +204,7 @@ def main() -> int:
             finally:
                 services.stop()
 
-        subprocess.run(
-            ["bazel", f"--output_base={output_base}", "shutdown"],
-            cwd=workspace,
-            check=False,
-        )
+        shutdown_bazel(workspace, output_base)
 
         print("\n=== Multinode scheduling test passed ===")
         print("Verified: Multiple multinode tests can be scheduled and run sequentially")

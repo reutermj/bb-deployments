@@ -17,11 +17,11 @@ Port allocation: 9090-9094
 
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 import time
 
+from lib.bazel_runner import run_bazel_test, shutdown_bazel
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
@@ -34,6 +34,7 @@ from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
 
 TEST_PORT = 9884
+EXECUTOR_PORT = 9090
 CONFIG_DIR = "_main/tests/concurrency/config"
 
 # Services for concurrency test: single worker with concurrency=8
@@ -44,28 +45,6 @@ SERVICES = [
     ServiceConfig("worker", f"{CONFIG_DIR}/worker.jsonnet", BINARY_WORKER),
     ServiceConfig("runner", f"{CONFIG_DIR}/runner.jsonnet", BINARY_RUNNER),
 ]
-
-
-def run_bazel_tests(workspace: str, output_base: str, num_jobs: int) -> subprocess.Popen:
-    """Start bazel test with remote execution config.
-
-    Runs N test targets concurrently.
-    Returns the Popen object (non-blocking).
-    """
-    targets = [f"//tests/concurrency:test{i}" for i in range(1, num_jobs + 1)]
-
-    cmd = [
-        "bazel",
-        f"--output_base={output_base}",
-        "test",
-        "--config=remote-local",
-        "--remote_executor=grpc://localhost:9090",
-        "--disk_cache=",
-        "--nocache_test_results",  # Force re-execution every time
-        f"--jobs={num_jobs}",
-    ] + targets
-
-    return subprocess.Popen(cmd, cwd=workspace)
 
 
 def test_concurrent_execution(
@@ -79,7 +58,14 @@ def test_concurrent_execution(
     print(f"Worker has concurrency=8, so all {num_jobs} tests should start simultaneously")
 
     # Start bazel tests (non-blocking)
-    bazel_proc = run_bazel_tests(workspace, output_base, num_jobs)
+    targets = [f"//tests/concurrency:test{i}" for i in range(1, num_jobs + 1)]
+    bazel_proc = run_bazel_test(
+        workspace,
+        output_base,
+        targets,
+        EXECUTOR_PORT,
+        extra_flags=["--nocache_test_results", f"--jobs={num_jobs}"],
+    )
 
     # Collect all STARTED messages
     started_tests = []
@@ -92,14 +78,14 @@ def test_concurrent_execution(
     while len(started_tests) < num_jobs:
         remaining = timeout - (time.time() - start_time)
         if remaining <= 0:
-            print(f"FAIL: Timeout waiting for all tests to start")
+            print("FAIL: Timeout waiting for all tests to start")
             print(f"Only received {len(started_tests)} of {num_jobs} STARTED messages")
             bazel_proc.terminate()
             return False
 
         msg = server.wait_for_message_with_conn(remaining)
         if msg is None:
-            print(f"FAIL: Timeout waiting for STARTED message")
+            print("FAIL: Timeout waiting for STARTED message")
             bazel_proc.terminate()
             return False
 
@@ -119,7 +105,7 @@ def test_concurrent_execution(
     print(f"\n--- Sending CONTINUE to all {num_jobs} tests ---")
     for msg in connections:
         if not SocketServer.reply(msg, "CONTINUE"):
-            print(f"FAIL: Could not send CONTINUE")
+            print("FAIL: Could not send CONTINUE")
             bazel_proc.terminate()
             return False
 
@@ -166,11 +152,7 @@ def main() -> int:
             finally:
                 services.stop()
 
-        subprocess.run(
-            ["bazel", f"--output_base={output_base}", "shutdown"],
-            cwd=workspace,
-            check=False,
-        )
+        shutdown_bazel(workspace, output_base)
 
         print("\n=== All concurrency tests passed ===")
         print("Verified: Worker can execute multiple jobs concurrently")

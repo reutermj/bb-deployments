@@ -11,10 +11,10 @@ The second STARTED message proves the first test completed and freed the worker.
 
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 
+from lib.bazel_runner import run_bazel_test, shutdown_bazel
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
@@ -27,6 +27,7 @@ from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
 
 TEST_PORT = 9881
+EXECUTOR_PORT = 9040
 CONFIG_DIR = "_main/tests/1-worker-2-sequential/config"
 
 # Services for sequential test: single worker with concurrency=1
@@ -37,27 +38,6 @@ SERVICES = [
     ServiceConfig("worker", f"{CONFIG_DIR}/worker.jsonnet", BINARY_WORKER),
     ServiceConfig("runner", f"{CONFIG_DIR}/runner.jsonnet", BINARY_RUNNER),
 ]
-
-
-def run_bazel_tests(workspace: str, output_base: str) -> subprocess.Popen:
-    """Start bazel test with remote execution config.
-
-    Runs 2 test targets (they will queue since worker has concurrency=1).
-    Returns the Popen object (non-blocking).
-    """
-    cmd = [
-        "bazel",
-        f"--output_base={output_base}",
-        "test",
-        "--config=remote-local",
-        "--remote_executor=grpc://localhost:9040",
-        "--disk_cache=",
-        "--jobs=2",
-        "//tests/1-worker-2-sequential:test1",
-        "//tests/1-worker-2-sequential:test2",
-    ]
-
-    return subprocess.Popen(cmd, cwd=workspace)
 
 
 def main() -> int:
@@ -84,7 +64,16 @@ def main() -> int:
                 print("Worker has concurrency=1, so tests must run one at a time")
 
                 # Start bazel tests (non-blocking)
-                bazel_proc = run_bazel_tests(workspace, output_base)
+                bazel_proc = run_bazel_test(
+                    workspace,
+                    output_base,
+                    [
+                        "//tests/1-worker-2-sequential:test1",
+                        "//tests/1-worker-2-sequential:test2",
+                    ],
+                    EXECUTOR_PORT,
+                    extra_flags=["--jobs=2"],
+                )
 
                 # === First test execution ===
                 print("\n--- Waiting for first test to start ---")
@@ -136,11 +125,7 @@ def main() -> int:
             finally:
                 services.stop()
 
-        subprocess.run(
-            ["bazel", f"--output_base={output_base}", "shutdown"],
-            cwd=workspace,
-            check=False,
-        )
+        shutdown_bazel(workspace, output_base)
 
         print("\n=== All tests passed ===")
         print("Verified: Sequential scheduling works correctly with single worker")

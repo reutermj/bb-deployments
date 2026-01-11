@@ -26,6 +26,7 @@ py_test(
     data = glob(["config/*.jsonnet"]) + glob(["config/*.libsonnet"]),
     env_inherit = ["HOME"],
     deps = [
+        "//lib:bazel_runner",
         "//lib:service_manager",
         "//lib:socket_server",
         "//lib:workspace",

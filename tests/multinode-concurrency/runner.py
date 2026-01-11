@@ -19,11 +19,11 @@ Port allocation: 9100-9104
 
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 import time
 
+from lib.bazel_runner import run_bazel_test, shutdown_bazel
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
@@ -36,6 +36,7 @@ from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
 
 TEST_PORT = 9885
+EXECUTOR_PORT = 9100
 CONFIG_DIR = "_main/tests/multinode-concurrency/config"
 
 # Services for multinode concurrency test: 8 worker/runner pairs with concurrency=1
@@ -60,30 +61,6 @@ for i in range(1, 9):
     EXTRA_DIRS.extend([f"worker{i}", f"worker{i}/build", f"worker{i}/cache"])
 
 
-def run_bazel_test(
-    workspace: str, output_base: str, multinode_count: int
-) -> subprocess.Popen:
-    """Start bazel test with remote execution config.
-
-    Runs a single test target with multinode_count=N.
-    Returns the Popen object (non-blocking).
-    """
-    target = f"//tests/multinode-concurrency:test_multinode_{multinode_count}"
-
-    cmd = [
-        "bazel",
-        f"--output_base={output_base}",
-        "test",
-        "--config=remote-local",
-        "--remote_executor=grpc://localhost:9100",
-        "--disk_cache=",
-        "--nocache_test_results",
-        target,
-    ]
-
-    return subprocess.Popen(cmd, cwd=workspace)
-
-
 def test_multinode_concurrent_execution(
     workspace: str, output_base: str, server: SocketServer, multinode_count: int
 ) -> bool:
@@ -97,7 +74,14 @@ def test_multinode_concurrent_execution(
     )
 
     # Start bazel test (non-blocking)
-    bazel_proc = run_bazel_test(workspace, output_base, multinode_count)
+    target = f"//tests/multinode-concurrency:test_multinode_{multinode_count}"
+    bazel_proc = run_bazel_test(
+        workspace,
+        output_base,
+        [target],
+        EXECUTOR_PORT,
+        extra_flags=["--nocache_test_results"],
+    )
 
     # Collect all STARTED messages
     started_count = 0
@@ -187,11 +171,7 @@ def main() -> int:
             finally:
                 services.stop()
 
-        subprocess.run(
-            ["bazel", f"--output_base={output_base}", "shutdown"],
-            cwd=workspace,
-            check=False,
-        )
+        shutdown_bazel(workspace, output_base)
 
         print("\n=== All multinode concurrency tests passed ===")
         print("Verified: Multinode jobs run tasks concurrently on different workers")

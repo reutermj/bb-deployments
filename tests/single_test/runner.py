@@ -6,31 +6,17 @@ the expected message back to the runner.
 
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 
+from lib.bazel_runner import run_bazel_test_sync, shutdown_bazel
 from lib.service_manager import ServiceManager, default_services
 from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
 
 TEST_PORT = 9877
+EXECUTOR_PORT = 9000
 CONFIG_DIR = "_main/tests/single_test/config"
-
-def run_bazel_test(workspace: str, output_base: str) -> bool:
-    """Run bazel test with remote execution config."""
-    cmd = [
-        "bazel",
-        f"--output_base={output_base}",
-        "test",
-        "--config=remote-local",
-        "--remote_executor=grpc://localhost:9000",
-        "--disk_cache=",
-        "//tests/single_test:test",
-    ]
-
-    result = subprocess.run(cmd, cwd=workspace)
-    return result.returncode == 0
 
 
 def main() -> int:
@@ -55,7 +41,13 @@ def main() -> int:
             try:
                 print("\n=== Running remote execution test ===")
 
-                if not run_bazel_test(workspace, output_base):
+                result = run_bazel_test_sync(
+                    workspace,
+                    output_base,
+                    ["//tests/single_test:test"],
+                    EXECUTOR_PORT,
+                )
+                if result.returncode != 0:
                     print("FAIL: Bazel test failed")
                     return 1
 
@@ -69,11 +61,7 @@ def main() -> int:
             finally:
                 services.stop()
 
-        subprocess.run(
-            ["bazel", f"--output_base={output_base}", "shutdown"],
-            cwd=workspace,
-            check=False,
-        )
+        shutdown_bazel(workspace, output_base)
 
         print("\n=== Test passed ===")
         return 0

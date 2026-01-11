@@ -11,33 +11,15 @@ Test flow:
 
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 
+from lib.bazel_runner import run_bazel_test_sync, shutdown_bazel
 from lib.service_manager import ServiceManager, default_services
 from lib.workspace import find_workspace_root
 
+EXECUTOR_PORT = 9010
 CONFIG_DIR = "_main/tests/single_failure_test/config"
-
-
-def run_bazel_test(workspace: str, output_base: str) -> int:
-    """Run bazel test with remote execution config.
-
-    Returns the exit code.
-    """
-    cmd = [
-        "bazel",
-        f"--output_base={output_base}",
-        "test",
-        "--config=remote-local",
-        "--remote_executor=grpc://localhost:9010",
-        "--disk_cache=",
-        "//tests/single_failure_test:test",
-    ]
-
-    result = subprocess.run(cmd, cwd=workspace)
-    return result.returncode
 
 
 def main() -> int:
@@ -59,22 +41,23 @@ def main() -> int:
         try:
             print("\n=== Running test failure detection test ===")
 
-            exit_code = run_bazel_test(workspace, output_base)
+            result = run_bazel_test_sync(
+                workspace,
+                output_base,
+                ["//tests/single_failure_test:test"],
+                EXECUTOR_PORT,
+            )
 
-            if exit_code == 0:
+            if result.returncode == 0:
                 print("FAIL: Bazel test should have failed but returned 0")
                 return 1
 
-            print(f"PASS: Bazel test correctly failed with code {exit_code}")
+            print(f"PASS: Bazel test correctly failed with code {result.returncode}")
 
         finally:
             services.stop()
 
-        subprocess.run(
-            ["bazel", f"--output_base={output_base}", "shutdown"],
-            cwd=workspace,
-            check=False,
-        )
+        shutdown_bazel(workspace, output_base)
 
         print("\n=== Test passed ===")
         print("Verified: Test runner correctly detects test failure")

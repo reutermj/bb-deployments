@@ -16,11 +16,11 @@ Port allocation: 9080-9084
 
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 from typing import NamedTuple
 
+from lib.bazel_runner import run_bazel_test_sync, shutdown_bazel
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
@@ -32,6 +32,7 @@ from lib.service_manager import (
 from lib.workspace import find_workspace_root
 
 
+EXECUTOR_PORT = 9080
 CONFIG_DIR = "_main/tests/multinode-count-validation/config"
 
 # Services for multinode validation test: 4 worker/runner pairs
@@ -106,29 +107,6 @@ TEST_CASES = [
 ]
 
 
-def run_bazel_test(
-    workspace: str, output_base: str, target: str
-) -> subprocess.CompletedProcess:
-    """Run bazel test with remote execution config."""
-    cmd = [
-        "bazel",
-        f"--output_base={output_base}",
-        "test",
-        "--config=remote-local",
-        "--remote_executor=grpc://localhost:9080",
-        "--disk_cache=",
-        "--test_timeout=30",
-        target,
-    ]
-
-    return subprocess.run(
-        cmd,
-        cwd=workspace,
-        capture_output=True,
-        text=True,
-    )
-
-
 def run_rejection_test(
     workspace: str, output_base: str, test_case: TestCase
 ) -> bool:
@@ -137,23 +115,30 @@ def run_rejection_test(
     print(f"Target: {test_case.target}")
     print(f"Expected: Rejection with pattern '{test_case.error_pattern}'")
 
-    result = run_bazel_test(workspace, output_base, test_case.target)
+    result = run_bazel_test_sync(
+        workspace,
+        output_base,
+        [test_case.target],
+        EXECUTOR_PORT,
+        extra_flags=["--test_timeout=30"],
+        capture_output=True,
+    )
 
     if result.returncode == 0:
-        print(f"FAIL: Test succeeded but should have been rejected")
+        print("FAIL: Test succeeded but should have been rejected")
         return False
 
     combined_output = result.stdout + result.stderr
 
     if test_case.error_pattern and test_case.error_pattern.lower() in combined_output.lower():
-        print(f"PASS: Found expected error pattern")
+        print("PASS: Found expected error pattern")
         return True
     else:
         # Still check for InvalidArgument as fallback
         if "invalid" in combined_output.lower():
-            print(f"PASS: Found InvalidArgument error (pattern not exact match)")
+            print("PASS: Found InvalidArgument error (pattern not exact match)")
             return True
-        print(f"FAIL: Did not find expected error pattern")
+        print("FAIL: Did not find expected error pattern")
         print(f"Stderr snippet: {result.stderr[:500]}")
         return False
 
@@ -162,16 +147,23 @@ def run_valid_test(workspace: str, output_base: str, test_case: TestCase) -> boo
     """Run a test with valid multinode_count that should execute."""
     print(f"\n--- Testing: {test_case.name} ---")
     print(f"Target: {test_case.target}")
-    print(f"Expected: Successful execution")
+    print("Expected: Successful execution")
 
-    result = run_bazel_test(workspace, output_base, test_case.target)
+    result = run_bazel_test_sync(
+        workspace,
+        output_base,
+        [test_case.target],
+        EXECUTOR_PORT,
+        extra_flags=["--test_timeout=30"],
+        capture_output=True,
+    )
 
     if result.returncode != 0:
-        print(f"FAIL: Test failed but should have succeeded")
+        print("FAIL: Test failed but should have succeeded")
         print(f"Stderr snippet: {result.stderr[:2000]}")
         return False
 
-    print(f"PASS: Test executed successfully")
+    print("PASS: Test executed successfully")
     return True
 
 
@@ -211,11 +203,7 @@ def main() -> int:
         finally:
             services.stop()
 
-        subprocess.run(
-            ["bazel", f"--output_base={output_base}", "shutdown"],
-            cwd=workspace,
-            check=False,
-        )
+        shutdown_bazel(workspace, output_base)
 
         print("\n=== Test passed ===")
         return 0

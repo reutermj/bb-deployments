@@ -11,30 +11,14 @@ import subprocess
 import sys
 import tempfile
 
+from lib.bazel_runner import run_bazel_test_sync, shutdown_bazel
 from lib.service_manager import ServiceManager, default_services
 from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
 
 TEST_PORT = 9876
+EXECUTOR_PORT = 9020
 CONFIG_DIR = "_main/tests/cache_hit/config"
-
-def run_bazel_test(workspace: str, output_base: str) -> bool:
-    """Run bazel test with remote execution config.
-
-    Returns True if bazel test succeeded.
-    """
-    cmd = [
-        "bazel",
-        f"--output_base={output_base}",
-        "test",
-        "--config=remote-local",
-        "--remote_executor=grpc://localhost:9020",
-        "--disk_cache=",
-        "//tests/cache_hit:test",
-    ]
-
-    result = subprocess.run(cmd, cwd=workspace)
-    return result.returncode == 0
 
 
 def main() -> int:
@@ -60,7 +44,13 @@ def main() -> int:
                 # === Phase 1: First run - expect execution ===
                 print("\n=== Phase 1: First run (expect remote execution) ===")
 
-                if not run_bazel_test(workspace, output_base):
+                result = run_bazel_test_sync(
+                    workspace,
+                    output_base,
+                    ["//tests/cache_hit:test"],
+                    EXECUTOR_PORT,
+                )
+                if result.returncode != 0:
                     print("FAIL: Bazel test failed on first run")
                     return 1
 
@@ -86,7 +76,13 @@ def main() -> int:
 
                 # Run the test synchronously, then check for messages after.
                 # On a cache hit, bazel returns success but no message is sent.
-                if not run_bazel_test(workspace, output_base):
+                result = run_bazel_test_sync(
+                    workspace,
+                    output_base,
+                    ["//tests/cache_hit:test"],
+                    EXECUTOR_PORT,
+                )
+                if result.returncode != 0:
                     print("FAIL: Bazel test failed on second run")
                     return 1
 
@@ -101,11 +97,7 @@ def main() -> int:
             finally:
                 services.stop()
 
-        subprocess.run(
-            ["bazel", f"--output_base={output_base}", "shutdown"],
-            cwd=workspace,
-            check=False,
-        )
+        shutdown_bazel(workspace, output_base)
 
         print("\n=== All tests passed ===")
         return 0

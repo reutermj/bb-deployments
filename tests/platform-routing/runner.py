@@ -25,10 +25,10 @@ This validates:
 
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 
+from lib.bazel_runner import run_bazel_test, shutdown_bazel
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
@@ -41,6 +41,7 @@ from lib.socket_server import Message, SocketServer
 from lib.workspace import find_workspace_root
 
 TEST_PORT = 9883
+EXECUTOR_PORT = 9060
 CONFIG_DIR = "_main/tests/platform-routing/config"
 
 # Services: 2 workers with different platforms
@@ -62,28 +63,6 @@ EXTRA_DIRS = [
     "worker-arch2/build",
     "worker-arch2/cache",
 ]
-
-
-def run_bazel_tests(workspace: str, output_base: str) -> subprocess.Popen:
-    """Start bazel test with remote execution config.
-
-    Runs 3 test targets: 2 for arch1, 1 for arch2.
-    Returns the Popen object (non-blocking).
-    """
-    cmd = [
-        "bazel",
-        f"--output_base={output_base}",
-        "test",
-        "--config=remote-local",
-        "--remote_executor=grpc://localhost:9060",
-        "--disk_cache=",
-        "--jobs=3",
-        "//tests/platform-routing:test_arch1_a",
-        "//tests/platform-routing:test_arch1_b",
-        "//tests/platform-routing:test_arch2",
-    ]
-
-    return subprocess.Popen(cmd, cwd=workspace)
 
 
 def main() -> int:
@@ -111,7 +90,17 @@ def main() -> int:
                 print("arch2 worker handles: test_arch2")
 
                 # Start all tests
-                bazel_proc = run_bazel_tests(workspace, output_base)
+                bazel_proc = run_bazel_test(
+                    workspace,
+                    output_base,
+                    [
+                        "//tests/platform-routing:test_arch1_a",
+                        "//tests/platform-routing:test_arch1_b",
+                        "//tests/platform-routing:test_arch2",
+                    ],
+                    EXECUTOR_PORT,
+                    extra_flags=["--jobs=3"],
+                )
 
                 # === Phase 1: Wait for initial scheduling ===
                 # We expect 2 tests to start: one on arch1, one on arch2
@@ -234,11 +223,7 @@ def main() -> int:
             finally:
                 services.stop()
 
-        subprocess.run(
-            ["bazel", f"--output_base={output_base}", "shutdown"],
-            cwd=workspace,
-            check=False,
-        )
+        shutdown_bazel(workspace, output_base)
 
         print("\n=== All tests passed ===")
         print("Verified: Platform routing works correctly")

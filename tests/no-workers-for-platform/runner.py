@@ -18,37 +18,15 @@ FailedPrecondition (or Unavailable if the scheduler just started).
 
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 
+from lib.bazel_runner import run_bazel_test_sync, shutdown_bazel
 from lib.service_manager import ServiceManager, default_services
 from lib.workspace import find_workspace_root
 
+EXECUTOR_PORT = 9070
 CONFIG_DIR = "_main/tests/no-workers-for-platform/config"
-
-
-def run_bazel_test(workspace: str, output_base: str) -> subprocess.CompletedProcess:
-    """Run bazel test with remote execution config.
-
-    Returns the CompletedProcess with stdout/stderr captured.
-    """
-    cmd = [
-        "bazel",
-        f"--output_base={output_base}",
-        "test",
-        "--config=remote-local",
-        "--remote_executor=grpc://localhost:9070",
-        "--disk_cache=",
-        "//tests/no-workers-for-platform:test",
-    ]
-
-    return subprocess.run(
-        cmd,
-        cwd=workspace,
-        capture_output=True,
-        text=True,
-    )
 
 
 def main() -> int:
@@ -72,7 +50,13 @@ def main() -> int:
             print("Requesting a test with platform arch=nonexistent")
             print("Expected: Bazel fails because no workers match this platform")
 
-            result = run_bazel_test(workspace, output_base)
+            result = run_bazel_test_sync(
+                workspace,
+                output_base,
+                ["//tests/no-workers-for-platform:test"],
+                EXECUTOR_PORT,
+                capture_output=True,
+            )
 
             print(f"\nBazel exit code: {result.returncode}")
 
@@ -112,11 +96,7 @@ def main() -> int:
         finally:
             services.stop()
 
-        subprocess.run(
-            ["bazel", f"--output_base={output_base}", "shutdown"],
-            cwd=workspace,
-            check=False,
-        )
+        shutdown_bazel(workspace, output_base)
 
         print("\n=== Test passed ===")
         print("Verified: Scheduler correctly rejects actions for non-existent platforms")
