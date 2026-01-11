@@ -12,7 +12,6 @@ py_test(
     main = "test.py",
     env = {"MULTINODE_COUNT_TEST_VALUE": "100"},
     exec_properties = {"multinode_count": "100"},
-    deps = ["//lib:test_client"],
 )
 
 # Test: multinode_count is zero
@@ -23,7 +22,6 @@ py_test(
     main = "test.py",
     env = {"MULTINODE_COUNT_TEST_VALUE": "0"},
     exec_properties = {"multinode_count": "0"},
-    deps = ["//lib:test_client"],
 )
 
 # Test: multinode_count is negative
@@ -34,7 +32,6 @@ py_test(
     main = "test.py",
     env = {"MULTINODE_COUNT_TEST_VALUE": "-1"},
     exec_properties = {"multinode_count": "-1"},
-    deps = ["//lib:test_client"],
 )
 
 # Test: multinode_count is non-integer
@@ -45,7 +42,6 @@ py_test(
     main = "test.py",
     env = {"MULTINODE_COUNT_TEST_VALUE": "invalid"},
     exec_properties = {"multinode_count": "invalid"},
-    deps = ["//lib:test_client"],
 )
 
 # Test: valid multinode_count (1 - single node, should pass through)
@@ -56,18 +52,16 @@ py_test(
     main = "test.py",
     env = {"MULTINODE_COUNT_TEST_VALUE": "1"},
     exec_properties = {"multinode_count": "1"},
-    deps = ["//lib:test_client"],
 )
 
-# Test: valid multinode_count (4 - multi-node, but execution not yet implemented)
-# Expected: Test executes successfully (current impl is pass-through)
+# Test: valid multinode_count (4 - multi-node)
+# Expected: Test executes successfully
 py_test(
     name = "test_valid_multi",
     srcs = ["test.py"],
     main = "test.py",
     env = {"MULTINODE_COUNT_TEST_VALUE": "4"},
     exec_properties = {"multinode_count": "4"},
-    deps = ["//lib:test_client"],
 )
 
 py_binary(
@@ -76,7 +70,6 @@ py_binary(
     data = glob(["config/*.jsonnet"]) + glob(["config/*.libsonnet"]),
     deps = [
         "//lib:service_manager",
-        "//lib:socket_server",
         "//lib:workspace",
     ],
 )

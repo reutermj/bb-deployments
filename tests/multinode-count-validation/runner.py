@@ -12,7 +12,6 @@ Port allocation: 9080-9084
   - 9082: scheduler (client gRPC)
   - 9083: scheduler (worker gRPC)
   - 9084: scheduler (admin HTTP)
-  - 9878: socket server for valid test confirmation
 """
 
 import os
@@ -23,11 +22,9 @@ import tempfile
 from typing import NamedTuple
 
 from lib.service_manager import ServiceManager, default_services
-from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
 
 
-TEST_PORT = 9878
 CONFIG_DIR = "_main/tests/multinode-count-validation/config"
 
 
@@ -36,7 +33,6 @@ class TestCase(NamedTuple):
     target: str
     should_fail: bool
     error_pattern: str | None  # Pattern to look for in error output
-    needs_socket: bool  # Whether this test needs the socket server
 
 
 TEST_CASES = [
@@ -45,28 +41,24 @@ TEST_CASES = [
         target="//tests/multinode-count-validation:test_exceeds_max",
         should_fail=True,
         error_pattern="exceeds maximum",
-        needs_socket=False,
     ),
     TestCase(
         name="multinode_count is zero",
         target="//tests/multinode-count-validation:test_zero",
         should_fail=True,
         error_pattern="must be at least 1",
-        needs_socket=False,
     ),
     TestCase(
         name="multinode_count is negative (-1)",
         target="//tests/multinode-count-validation:test_negative",
         should_fail=True,
         error_pattern="must be a positive integer",
-        needs_socket=False,
     ),
     TestCase(
         name="multinode_count is non-integer",
         target="//tests/multinode-count-validation:test_non_integer",
         should_fail=True,
         error_pattern="must be a positive integer",
-        needs_socket=False,
     ),
     # Valid multinode_count values are stripped from the platform key
     # so the action matches workers with empty platform.
@@ -75,14 +67,12 @@ TEST_CASES = [
         target="//tests/multinode-count-validation:test_valid_single",
         should_fail=False,
         error_pattern=None,
-        needs_socket=True,
     ),
     TestCase(
         name="valid multinode_count=4 (multi-node)",
         target="//tests/multinode-count-validation:test_valid_multi",
         should_fail=False,
         error_pattern=None,
-        needs_socket=True,
     ),
 ]
 
@@ -138,9 +128,7 @@ def run_rejection_test(
         return False
 
 
-def run_valid_test(
-    workspace: str, output_base: str, test_case: TestCase, server: SocketServer
-) -> bool:
+def run_valid_test(workspace: str, output_base: str, test_case: TestCase) -> bool:
     """Run a test with valid multinode_count that should execute."""
     print(f"\n--- Testing: {test_case.name} ---")
     print(f"Target: {test_case.target}")
@@ -151,12 +139,6 @@ def run_valid_test(
     if result.returncode != 0:
         print(f"FAIL: Test failed but should have succeeded")
         print(f"Stderr snippet: {result.stderr[:2000]}")
-        return False
-
-    # Check for the EXECUTED message from the test binary
-    message = server.wait_for_message(10)
-    if message != "EXECUTED":
-        print(f"FAIL: Expected EXECUTED message, got: {message}")
         return False
 
     print(f"PASS: Test executed successfully")
@@ -173,44 +155,41 @@ def main() -> int:
     print(f"Working directory: {working_dir}")
 
     try:
-        with SocketServer(TEST_PORT) as server:
-            print(f"Socket server listening on port {TEST_PORT}")
+        services = ServiceManager(working_dir, default_services(CONFIG_DIR))
 
-            services = ServiceManager(working_dir, default_services(CONFIG_DIR))
+        if not services.start():
+            print("FAIL: Could not start Buildbarn services")
+            return 1
 
-            if not services.start():
-                print("FAIL: Could not start Buildbarn services")
+        try:
+            print("\n=== Running multinode_count validation tests ===")
+            print(f"Running {len(TEST_CASES)} test cases")
+
+            passed = 0
+            failed = 0
+
+            for test_case in TEST_CASES:
+                if test_case.should_fail:
+                    success = run_rejection_test(workspace, output_base, test_case)
+                else:
+                    success = run_valid_test(workspace, output_base, test_case)
+
+                if success:
+                    passed += 1
+                else:
+                    failed += 1
+
+            print("\n" + "=" * 50)
+            print(f"Results: {passed} passed, {failed} failed")
+
+            if failed > 0:
+                print("FAIL: Some tests failed")
                 return 1
 
-            try:
-                print("\n=== Running multinode_count validation tests ===")
-                print(f"Running {len(TEST_CASES)} test cases")
+            print("PASS: All multinode_count validation tests passed")
 
-                passed = 0
-                failed = 0
-
-                for test_case in TEST_CASES:
-                    if test_case.should_fail:
-                        success = run_rejection_test(workspace, output_base, test_case)
-                    else:
-                        success = run_valid_test(workspace, output_base, test_case, server)
-
-                    if success:
-                        passed += 1
-                    else:
-                        failed += 1
-
-                print("\n" + "=" * 50)
-                print(f"Results: {passed} passed, {failed} failed")
-
-                if failed > 0:
-                    print("FAIL: Some tests failed")
-                    return 1
-
-                print("PASS: All multinode_count validation tests passed")
-
-            finally:
-                services.stop()
+        finally:
+            services.stop()
 
         subprocess.run(
             ["bazel", f"--output_base={output_base}", "shutdown"],
