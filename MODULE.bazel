@@ -10,10 +10,9 @@ local_path_override(
 )
 
 bazel_dep(name = "com_github_buildbarn_bb_storage")
-git_override(
+local_path_override(
     module_name = "com_github_buildbarn_bb_storage",
-    commit = "51e1a67922e22d65445f43aa809636cb481644f3",
-    remote = "https://github.com/buildbarn/bb-storage.git",
+    path = "bb-storage",
 )
 
 

@@ -12,6 +12,7 @@
 #   multinode-count-validation:     9080-9084
 #   concurrency:                    9090-9094
 #   multinode-concurrency:          9100-9104
+#   multinode-scheduling:           9110-9114
 
 set -e
 
@@ -27,4 +28,5 @@ bazel test \
     //tests/multinode-count-validation:runner \
     //tests/concurrency:runner \
     //tests/multinode-concurrency:runner \
+    //tests/multinode-scheduling:runner \
     --test_output=errors

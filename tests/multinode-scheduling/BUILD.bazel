@@ -1,0 +1,38 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
+
+# Test targets for multinode scheduling test.
+# Two 2-node tests that run sequentially due to limited workers.
+# Both tests use multinode_count=2 and include TEST_ID to identify themselves.
+
+py_test(
+    name = "test_2node_1",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "1"},
+    exec_properties = {"multinode_count": "2"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test_2node_2",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "2"},
+    exec_properties = {"multinode_count": "2"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "runner",
+    tags = ["local"],
+    size = "large",
+    timeout = "long",
+    srcs = ["runner.py"],
+    data = glob(["config/*.jsonnet"]) + glob(["config/*.libsonnet"]),
+    env_inherit = ["HOME"],
+    deps = [
+        "//lib:service_manager",
+        "//lib:socket_server",
+        "//lib:workspace",
+    ],
+)
