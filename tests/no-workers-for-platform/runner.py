@@ -16,97 +16,75 @@ when no workers exist for a platform, the scheduler returns
 FailedPrecondition (or Unavailable if the scheduler just started).
 """
 
-import os
-import shutil
 import sys
-import tempfile
 
-from lib.bazel_runner import run_bazel_test_sync, shutdown_bazel
-from lib.service_manager import ServiceManager, default_services
-from lib.workspace import find_workspace_root
+from lib.bazel_runner import run_bazel_test_sync
+from lib.service_manager import default_services
+from lib.test_runner import TestContext, run_test
 
 EXECUTOR_PORT = 9070
 CONFIG_DIR = "_main/tests/no-workers-for-platform/config"
 
 
+def test_no_workers_for_platform(ctx: TestContext) -> int:
+    """Test that scheduler rejects actions for non-existent platforms."""
+    print("\n=== Running no-workers-for-platform test ===")
+    print("Requesting a test with platform arch=nonexistent")
+    print("Expected: Bazel fails because no workers match this platform")
+
+    result = run_bazel_test_sync(
+        ctx.workspace,
+        ctx.output_base,
+        ["//tests/no-workers-for-platform:test"],
+        EXECUTOR_PORT,
+        capture_output=True,
+    )
+
+    print(f"\nBazel exit code: {result.returncode}")
+
+    # The test should fail
+    if result.returncode == 0:
+        print("FAIL: Bazel test succeeded but should have failed")
+        print("The test binary should never have executed")
+        return 1
+
+    # Check for the expected error message
+    combined_output = result.stdout + result.stderr
+
+    # The scheduler should report no workers for the platform
+    expected_patterns = [
+        "No workers exist",
+        "no workers",
+        "FAILED_PRECONDITION",
+        "FailedPrecondition",
+        "platform",
+    ]
+
+    found_pattern = False
+    for pattern in expected_patterns:
+        if pattern.lower() in combined_output.lower():
+            found_pattern = True
+            print(f"Found expected error pattern: '{pattern}'")
+            break
+
+    if not found_pattern:
+        # Still a pass if bazel failed - the important thing is it didn't execute
+        print("Note: Did not find specific error pattern, but bazel failed as expected")
+        print("Stderr snippet:")
+        print(result.stderr[:1000] if result.stderr else "(empty)")
+
+    print("\nPASS: Bazel test failed as expected (no workers for platform)")
+    print("\n=== Test passed ===")
+    print("Verified: Scheduler correctly rejects actions for non-existent platforms")
+    return 0
+
+
 def main() -> int:
-    workspace = find_workspace_root()
-    print(f"Workspace root: {workspace}")
-
-    working_dir = tempfile.mkdtemp(prefix="bb-test-no-workers-")
-    output_base = os.path.join(working_dir, "bazel-output")
-
-    print(f"Working directory: {working_dir}")
-
-    try:
-        services = ServiceManager(working_dir, default_services(CONFIG_DIR))
-
-        if not services.start():
-            print("FAIL: Could not start Buildbarn services")
-            return 1
-
-        try:
-            print("\n=== Running no-workers-for-platform test ===")
-            print("Requesting a test with platform arch=nonexistent")
-            print("Expected: Bazel fails because no workers match this platform")
-
-            result = run_bazel_test_sync(
-                workspace,
-                output_base,
-                ["//tests/no-workers-for-platform:test"],
-                EXECUTOR_PORT,
-                capture_output=True,
-            )
-
-            print(f"\nBazel exit code: {result.returncode}")
-
-            # The test should fail
-            if result.returncode == 0:
-                print("FAIL: Bazel test succeeded but should have failed")
-                print("The test binary should never have executed")
-                return 1
-
-            # Check for the expected error message
-            combined_output = result.stdout + result.stderr
-
-            # The scheduler should report no workers for the platform
-            expected_patterns = [
-                "No workers exist",
-                "no workers",
-                "FAILED_PRECONDITION",
-                "FailedPrecondition",
-                "platform",
-            ]
-
-            found_pattern = False
-            for pattern in expected_patterns:
-                if pattern.lower() in combined_output.lower():
-                    found_pattern = True
-                    print(f"Found expected error pattern: '{pattern}'")
-                    break
-
-            if not found_pattern:
-                # Still a pass if bazel failed - the important thing is it didn't execute
-                print("Note: Did not find specific error pattern, but bazel failed as expected")
-                print("Stderr snippet:")
-                print(result.stderr[:1000] if result.stderr else "(empty)")
-
-            print("\nPASS: Bazel test failed as expected (no workers for platform)")
-
-        finally:
-            services.stop()
-
-        shutdown_bazel(workspace, output_base)
-
-        print("\n=== Test passed ===")
-        print("Verified: Scheduler correctly rejects actions for non-existent platforms")
-        return 0
-
-    finally:
-        try:
-            shutil.rmtree(working_dir)
-        except Exception as e:
-            print(f"Warning: Failed to cleanup {working_dir}: {e}")
+    return run_test(
+        temp_prefix="bb-test-no-workers-",
+        services=default_services(CONFIG_DIR),
+        test_fn=test_no_workers_for_platform,
+    )
 
 
 if __name__ == "__main__":

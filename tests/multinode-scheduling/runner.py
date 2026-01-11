@@ -28,23 +28,19 @@ Port allocation: 9110-9114
   - 9886: socket server for test coordination
 """
 
-import os
-import shutil
 import sys
-import tempfile
 import time
 
-from lib.bazel_runner import run_bazel_test, shutdown_bazel
+from lib.bazel_runner import run_bazel_test
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
     BINARY_STORAGE,
     BINARY_WORKER,
     ServiceConfig,
-    ServiceManager,
 )
 from lib.socket_server import SocketServer
-from lib.workspace import find_workspace_root
+from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
 TEST_PORT = 9886
 EXECUTOR_PORT = 9110
@@ -119,102 +115,80 @@ def continue_test(connections: list) -> bool:
     return True
 
 
+def test_multinode_scheduling(ctx: TestContextWithSocket) -> int:
+    """Run the multinode scheduling test."""
+    print("\n=== Running multinode scheduling test ===")
+    print("Testing that 2 two-node tests can be scheduled with 2 workers")
+    print("Both tests are scheduled via single bazel command, processed sequentially")
+
+    # Start bazel test (non-blocking) - schedules both 2-node tests
+    print("\n--- Starting bazel test with both 2-node tests ---")
+    bazel_proc = run_bazel_test(
+        ctx.workspace,
+        ctx.output_base,
+        [
+            "//tests/multinode-scheduling:test_2node_1",
+            "//tests/multinode-scheduling:test_2node_2",
+        ],
+        EXECUTOR_PORT,
+        extra_flags=["--nocache_test_results"],
+    )
+
+    # Wait for first 2-node test (TEST_ID=1) to start
+    print("\n--- Waiting for test 1 (2 nodes) to start ---")
+    test1_conns = wait_for_test_started(ctx.server, "1", timeout=60)
+    if test1_conns is None:
+        bazel_proc.terminate()
+        return 1
+
+    print("Test 1: Both nodes started")
+
+    # Continue the first test
+    print("--- Sending CONTINUE to test 1 ---")
+    if not continue_test(test1_conns):
+        bazel_proc.terminate()
+        return 1
+
+    print("Test 1: Continued, workers should become available")
+
+    # Wait for second 2-node test (TEST_ID=2) to start
+    print("\n--- Waiting for test 2 (2 nodes) to start ---")
+    test2_conns = wait_for_test_started(ctx.server, "2", timeout=60)
+    if test2_conns is None:
+        bazel_proc.terminate()
+        return 1
+
+    print("Test 2: Both nodes started")
+
+    # Continue the second test
+    print("--- Sending CONTINUE to test 2 ---")
+    if not continue_test(test2_conns):
+        bazel_proc.terminate()
+        return 1
+
+    print("Test 2: Continued")
+
+    # Wait for bazel to finish
+    print("\n--- Waiting for bazel to complete ---")
+    bazel_proc.wait()
+    if bazel_proc.returncode != 0:
+        print(f"FAIL: Bazel test failed with code {bazel_proc.returncode}")
+        return 1
+
+    print("\nPASS: Both 2-node tests completed successfully")
+    print("\n=== Multinode scheduling test passed ===")
+    print("Verified: Multiple multinode tests can be scheduled and run sequentially")
+    return 0
+
+
 def main() -> int:
-    workspace = find_workspace_root()
-    print(f"Workspace root: {workspace}")
-
-    working_dir = tempfile.mkdtemp(prefix="bb-test-multinode-scheduling-")
-    output_base = os.path.join(working_dir, "bazel-output")
-
-    print(f"Working directory: {working_dir}")
-
-    try:
-        with SocketServer(TEST_PORT) as server:
-            print(f"Socket server listening on port {TEST_PORT}")
-
-            services = ServiceManager(working_dir, SERVICES, EXTRA_DIRS)
-
-            if not services.start():
-                print("FAIL: Could not start Buildbarn services")
-                return 1
-
-            try:
-                print("\n=== Running multinode scheduling test ===")
-                print("Testing that 2 two-node tests can be scheduled with 2 workers")
-                print(
-                    "Both tests are scheduled via single bazel command, processed sequentially"
-                )
-
-                # Start bazel test (non-blocking) - schedules both 2-node tests
-                print("\n--- Starting bazel test with both 2-node tests ---")
-                bazel_proc = run_bazel_test(
-                    workspace,
-                    output_base,
-                    [
-                        "//tests/multinode-scheduling:test_2node_1",
-                        "//tests/multinode-scheduling:test_2node_2",
-                    ],
-                    EXECUTOR_PORT,
-                    extra_flags=["--nocache_test_results"],
-                )
-
-                # Wait for first 2-node test (TEST_ID=1) to start
-                print("\n--- Waiting for test 1 (2 nodes) to start ---")
-                test1_conns = wait_for_test_started(server, "1", timeout=60)
-                if test1_conns is None:
-                    bazel_proc.terminate()
-                    return 1
-
-                print("Test 1: Both nodes started")
-
-                # Continue the first test
-                print("--- Sending CONTINUE to test 1 ---")
-                if not continue_test(test1_conns):
-                    bazel_proc.terminate()
-                    return 1
-
-                print("Test 1: Continued, workers should become available")
-
-                # Wait for second 2-node test (TEST_ID=2) to start
-                print("\n--- Waiting for test 2 (2 nodes) to start ---")
-                test2_conns = wait_for_test_started(server, "2", timeout=60)
-                if test2_conns is None:
-                    bazel_proc.terminate()
-                    return 1
-
-                print("Test 2: Both nodes started")
-
-                # Continue the second test
-                print("--- Sending CONTINUE to test 2 ---")
-                if not continue_test(test2_conns):
-                    bazel_proc.terminate()
-                    return 1
-
-                print("Test 2: Continued")
-
-                # Wait for bazel to finish
-                print("\n--- Waiting for bazel to complete ---")
-                bazel_proc.wait()
-                if bazel_proc.returncode != 0:
-                    print(f"FAIL: Bazel test failed with code {bazel_proc.returncode}")
-                    return 1
-
-                print("\nPASS: Both 2-node tests completed successfully")
-
-            finally:
-                services.stop()
-
-        shutdown_bazel(workspace, output_base)
-
-        print("\n=== Multinode scheduling test passed ===")
-        print("Verified: Multiple multinode tests can be scheduled and run sequentially")
-        return 0
-
-    finally:
-        try:
-            shutil.rmtree(working_dir)
-        except Exception as e:
-            print(f"Warning: Failed to cleanup {working_dir}: {e}")
+    return run_test_with_socket(
+        temp_prefix="bb-test-multinode-scheduling-",
+        services=SERVICES,
+        socket_port=TEST_PORT,
+        test_fn=test_multinode_scheduling,
+        extra_dirs=EXTRA_DIRS,
+    )
 
 
 if __name__ == "__main__":

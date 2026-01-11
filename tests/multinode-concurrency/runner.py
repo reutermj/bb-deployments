@@ -17,23 +17,19 @@ Port allocation: 9100-9104
   - 9885: socket server for test coordination
 """
 
-import os
-import shutil
 import sys
-import tempfile
 import time
 
-from lib.bazel_runner import run_bazel_test, shutdown_bazel
+from lib.bazel_runner import run_bazel_test
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
     BINARY_STORAGE,
     BINARY_WORKER,
     ServiceConfig,
-    ServiceManager,
 )
 from lib.socket_server import SocketServer
-from lib.workspace import find_workspace_root
+from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
 TEST_PORT = 9885
 EXECUTOR_PORT = 9100
@@ -62,7 +58,7 @@ for i in range(1, 9):
 
 
 def test_multinode_concurrent_execution(
-    workspace: str, output_base: str, server: SocketServer, multinode_count: int
+    ctx: TestContextWithSocket, multinode_count: int
 ) -> bool:
     """Test that a multinode job with N tasks runs N tasks concurrently.
 
@@ -76,8 +72,8 @@ def test_multinode_concurrent_execution(
     # Start bazel test (non-blocking)
     target = f"//tests/multinode-concurrency:test_multinode_{multinode_count}"
     bazel_proc = run_bazel_test(
-        workspace,
-        output_base,
+        ctx.workspace,
+        ctx.output_base,
         [target],
         EXECUTOR_PORT,
         extra_flags=["--nocache_test_results"],
@@ -101,7 +97,7 @@ def test_multinode_concurrent_execution(
             bazel_proc.terminate()
             return False
 
-        msg = server.wait_for_message_with_conn(remaining)
+        msg = ctx.server.wait_for_message_with_conn(remaining)
         if msg is None:
             print("FAIL: Timeout waiting for STARTED message")
             bazel_proc.terminate()
@@ -136,52 +132,29 @@ def test_multinode_concurrent_execution(
     return True
 
 
+def test_multinode_concurrency(ctx: TestContextWithSocket) -> int:
+    """Run all multinode concurrency tests."""
+    print("\n=== Running multinode concurrency tests ===")
+    print("Testing that multinode jobs run tasks concurrently on different workers")
+
+    # Test with 2, 4, and 8 multinode tasks
+    for multinode_count in [2, 4, 8]:
+        if not test_multinode_concurrent_execution(ctx, multinode_count):
+            return 1
+
+    print("\n=== All multinode concurrency tests passed ===")
+    print("Verified: Multinode jobs run tasks concurrently on different workers")
+    return 0
+
+
 def main() -> int:
-    workspace = find_workspace_root()
-    print(f"Workspace root: {workspace}")
-
-    working_dir = tempfile.mkdtemp(prefix="bb-test-multinode-concurrency-")
-    output_base = os.path.join(working_dir, "bazel-output")
-
-    print(f"Working directory: {working_dir}")
-
-    try:
-        with SocketServer(TEST_PORT) as server:
-            print(f"Socket server listening on port {TEST_PORT}")
-
-            services = ServiceManager(working_dir, SERVICES, EXTRA_DIRS)
-
-            if not services.start():
-                print("FAIL: Could not start Buildbarn services")
-                return 1
-
-            try:
-                print("\n=== Running multinode concurrency tests ===")
-                print(
-                    "Testing that multinode jobs run tasks concurrently on different workers"
-                )
-
-                # Test with 2, 4, and 8 multinode tasks
-                for multinode_count in [2, 4, 8]:
-                    if not test_multinode_concurrent_execution(
-                        workspace, output_base, server, multinode_count
-                    ):
-                        return 1
-
-            finally:
-                services.stop()
-
-        shutdown_bazel(workspace, output_base)
-
-        print("\n=== All multinode concurrency tests passed ===")
-        print("Verified: Multinode jobs run tasks concurrently on different workers")
-        return 0
-
-    finally:
-        try:
-            shutil.rmtree(working_dir)
-        except Exception as e:
-            print(f"Warning: Failed to cleanup {working_dir}: {e}")
+    return run_test_with_socket(
+        temp_prefix="bb-test-multinode-concurrency-",
+        services=SERVICES,
+        socket_port=TEST_PORT,
+        test_fn=test_multinode_concurrency,
+        extra_dirs=EXTRA_DIRS,
+    )
 
 
 if __name__ == "__main__":

@@ -79,6 +79,6 @@ py_test(
         "//lib:bazel_runner",
         "//lib:service_manager",
         "//lib:socket_server",
-        "//lib:workspace",
+        "//lib:test_runner",
     ],
 )

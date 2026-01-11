@@ -14,22 +14,18 @@ Port allocation: 9080-9084
   - 9084: scheduler (admin HTTP)
 """
 
-import os
-import shutil
 import sys
-import tempfile
 from typing import NamedTuple
 
-from lib.bazel_runner import run_bazel_test_sync, shutdown_bazel
+from lib.bazel_runner import run_bazel_test_sync
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
     BINARY_STORAGE,
     BINARY_WORKER,
     ServiceConfig,
-    ServiceManager,
 )
-from lib.workspace import find_workspace_root
+from lib.test_runner import TestContext, run_test
 
 
 EXECUTOR_PORT = 9080
@@ -107,17 +103,15 @@ TEST_CASES = [
 ]
 
 
-def run_rejection_test(
-    workspace: str, output_base: str, test_case: TestCase
-) -> bool:
+def run_rejection_test(ctx: TestContext, test_case: TestCase) -> bool:
     """Run a test that should be rejected by the scheduler."""
     print(f"\n--- Testing: {test_case.name} ---")
     print(f"Target: {test_case.target}")
     print(f"Expected: Rejection with pattern '{test_case.error_pattern}'")
 
     result = run_bazel_test_sync(
-        workspace,
-        output_base,
+        ctx.workspace,
+        ctx.output_base,
         [test_case.target],
         EXECUTOR_PORT,
         extra_flags=["--test_timeout=30"],
@@ -143,15 +137,15 @@ def run_rejection_test(
         return False
 
 
-def run_valid_test(workspace: str, output_base: str, test_case: TestCase) -> bool:
+def run_valid_test(ctx: TestContext, test_case: TestCase) -> bool:
     """Run a test with valid multinode_count that should execute."""
     print(f"\n--- Testing: {test_case.name} ---")
     print(f"Target: {test_case.target}")
     print("Expected: Successful execution")
 
     result = run_bazel_test_sync(
-        workspace,
-        output_base,
+        ctx.workspace,
+        ctx.output_base,
         [test_case.target],
         EXECUTOR_PORT,
         extra_flags=["--test_timeout=30"],
@@ -167,52 +161,34 @@ def run_valid_test(workspace: str, output_base: str, test_case: TestCase) -> boo
     return True
 
 
-def main() -> int:
-    workspace = find_workspace_root()
-    print(f"Workspace root: {workspace}")
+def test_multinode_count_validation(ctx: TestContext) -> int:
+    """Run all multinode_count validation tests."""
+    print("\n=== Running multinode_count validation tests ===")
+    print(f"Running {len(TEST_CASES)} test cases")
 
-    working_dir = tempfile.mkdtemp(prefix="bb-test-multinode-")
-    output_base = os.path.join(working_dir, "bazel-output")
+    for test_case in TEST_CASES:
+        if test_case.should_fail:
+            success = run_rejection_test(ctx, test_case)
+        else:
+            success = run_valid_test(ctx, test_case)
 
-    print(f"Working directory: {working_dir}")
-
-    try:
-        services = ServiceManager(working_dir, SERVICES, EXTRA_DIRS)
-
-        if not services.start():
-            print("FAIL: Could not start Buildbarn services")
+        if not success:
+            print(f"\nFAIL: Test '{test_case.name}' failed - aborting")
             return 1
 
-        try:
-            print("\n=== Running multinode_count validation tests ===")
-            print(f"Running {len(TEST_CASES)} test cases")
+    print("\n" + "=" * 50)
+    print("PASS: All multinode_count validation tests passed")
+    print("\n=== Test passed ===")
+    return 0
 
-            for test_case in TEST_CASES:
-                if test_case.should_fail:
-                    success = run_rejection_test(workspace, output_base, test_case)
-                else:
-                    success = run_valid_test(workspace, output_base, test_case)
 
-                if not success:
-                    print(f"\nFAIL: Test '{test_case.name}' failed - aborting")
-                    return 1
-
-            print("\n" + "=" * 50)
-            print("PASS: All multinode_count validation tests passed")
-
-        finally:
-            services.stop()
-
-        shutdown_bazel(workspace, output_base)
-
-        print("\n=== Test passed ===")
-        return 0
-
-    finally:
-        try:
-            shutil.rmtree(working_dir)
-        except Exception as e:
-            print(f"Warning: Failed to cleanup {working_dir}: {e}")
+def main() -> int:
+    return run_test(
+        temp_prefix="bb-test-multinode-",
+        services=SERVICES,
+        test_fn=test_multinode_count_validation,
+        extra_dirs=EXTRA_DIRS,
+    )
 
 
 if __name__ == "__main__":

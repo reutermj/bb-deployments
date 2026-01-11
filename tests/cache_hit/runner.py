@@ -3,6 +3,9 @@
 This test validates that:
 1. First run: test binary executes remotely (receives EXECUTED message)
 2. Second run: test binary is cached (no EXECUTED message)
+
+Note: This test has unique service restart logic that doesn't fit the
+standard test_runner pattern, so it uses a custom main() function.
 """
 
 import os

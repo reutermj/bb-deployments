@@ -13,6 +13,9 @@ Expected behavior:
 This validates the in-flight deduplication described in ARCHITECTURE.md:
 when two clients request the same action, the scheduler only executes
 it once and returns the same result to both.
+
+Note: This test uses 2 output bases, which doesn't fit the standard
+test_runner pattern, so it uses a custom main() function.
 """
 
 import os

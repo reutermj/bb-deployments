@@ -45,3 +45,15 @@ py_library(
         "@rules_python//python/runfiles",
     ],
 )
+
+py_library(
+    name = "test_runner",
+    srcs = ["test_runner.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":bazel_runner",
+        ":service_manager",
+        ":socket_server",
+        ":workspace",
+    ],
+)

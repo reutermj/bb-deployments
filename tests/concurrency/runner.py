@@ -15,23 +15,19 @@ Port allocation: 9090-9094
   - 9884: socket server for test coordination
 """
 
-import os
-import shutil
 import sys
-import tempfile
 import time
 
-from lib.bazel_runner import run_bazel_test, shutdown_bazel
+from lib.bazel_runner import run_bazel_test
 from lib.service_manager import (
     BINARY_RUNNER,
     BINARY_SCHEDULER,
     BINARY_STORAGE,
     BINARY_WORKER,
     ServiceConfig,
-    ServiceManager,
 )
 from lib.socket_server import SocketServer
-from lib.workspace import find_workspace_root
+from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
 TEST_PORT = 9884
 EXECUTOR_PORT = 9090
@@ -47,9 +43,7 @@ SERVICES = [
 ]
 
 
-def test_concurrent_execution(
-    workspace: str, output_base: str, server: SocketServer, num_jobs: int
-) -> bool:
+def test_concurrent_execution(ctx: TestContextWithSocket, num_jobs: int) -> bool:
     """Test that N jobs run concurrently.
 
     Returns True if all jobs started concurrently, False otherwise.
@@ -60,8 +54,8 @@ def test_concurrent_execution(
     # Start bazel tests (non-blocking)
     targets = [f"//tests/concurrency:test{i}" for i in range(1, num_jobs + 1)]
     bazel_proc = run_bazel_test(
-        workspace,
-        output_base,
+        ctx.workspace,
+        ctx.output_base,
         targets,
         EXECUTOR_PORT,
         extra_flags=["--nocache_test_results", f"--jobs={num_jobs}"],
@@ -83,7 +77,7 @@ def test_concurrent_execution(
             bazel_proc.terminate()
             return False
 
-        msg = server.wait_for_message_with_conn(remaining)
+        msg = ctx.server.wait_for_message_with_conn(remaining)
         if msg is None:
             print("FAIL: Timeout waiting for STARTED message")
             bazel_proc.terminate()
@@ -119,50 +113,28 @@ def test_concurrent_execution(
     return True
 
 
+def test_concurrency(ctx: TestContextWithSocket) -> int:
+    """Run all concurrency tests."""
+    print("\n=== Running concurrent execution tests ===")
+    print("Testing that multiple jobs can run simultaneously on one worker")
+
+    # Test with 2, 4, and 8 concurrent jobs
+    for num_jobs in [2, 4, 8]:
+        if not test_concurrent_execution(ctx, num_jobs):
+            return 1
+
+    print("\n=== All concurrency tests passed ===")
+    print("Verified: Worker can execute multiple jobs concurrently")
+    return 0
+
+
 def main() -> int:
-    workspace = find_workspace_root()
-    print(f"Workspace root: {workspace}")
-
-    working_dir = tempfile.mkdtemp(prefix="bb-test-concurrency-")
-    output_base = os.path.join(working_dir, "bazel-output")
-
-    print(f"Working directory: {working_dir}")
-
-    try:
-        with SocketServer(TEST_PORT) as server:
-            print(f"Socket server listening on port {TEST_PORT}")
-
-            services = ServiceManager(working_dir, SERVICES)
-
-            if not services.start():
-                print("FAIL: Could not start Buildbarn services")
-                return 1
-
-            try:
-                print("\n=== Running concurrent execution tests ===")
-                print("Testing that multiple jobs can run simultaneously on one worker")
-
-                # Test with 2, 4, and 8 concurrent jobs
-                for num_jobs in [2, 4, 8]:
-                    if not test_concurrent_execution(
-                        workspace, output_base, server, num_jobs
-                    ):
-                        return 1
-
-            finally:
-                services.stop()
-
-        shutdown_bazel(workspace, output_base)
-
-        print("\n=== All concurrency tests passed ===")
-        print("Verified: Worker can execute multiple jobs concurrently")
-        return 0
-
-    finally:
-        try:
-            shutil.rmtree(working_dir)
-        except Exception as e:
-            print(f"Warning: Failed to cleanup {working_dir}: {e}")
+    return run_test_with_socket(
+        temp_prefix="bb-test-concurrency-",
+        services=SERVICES,
+        socket_port=TEST_PORT,
+        test_fn=test_concurrency,
+    )
 
 
 if __name__ == "__main__":

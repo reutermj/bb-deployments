@@ -20,6 +20,6 @@ py_test(
     deps = [
         "//lib:bazel_runner",
         "//lib:service_manager",
-        "//lib:workspace",
+        "//lib:test_runner",
     ],
 )
