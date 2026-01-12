@@ -14,7 +14,7 @@ import sys
 
 from lib.test_client import TestClient
 
-TEST_PORT = 9883
+TEST_PORT = 9065
 
 
 def main() -> int:

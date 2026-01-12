@@ -8,13 +8,13 @@ The test schedules a single multinode job and verifies that ALL N
 tasks send STARTED before any receives CONTINUE. This proves they
 are running concurrently on different workers.
 
-Port allocation: 9100-9104
+Port allocation: 9100-9105
   - 9100: frontend (client-facing)
   - 9101: storage
   - 9102: scheduler (client gRPC)
   - 9103: scheduler (worker gRPC)
   - 9104: scheduler (admin HTTP)
-  - 9885: socket server for test coordination
+  - 9105: socket server for test coordination
 """
 
 import sys
@@ -30,7 +30,7 @@ from lib.service_manager import (
 )
 from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
-TEST_PORT = 9885
+TEST_PORT = 9105
 EXECUTOR_PORT = 9100
 CONFIG_DIR = "_main/tests/multinode-concurrency/config"
 

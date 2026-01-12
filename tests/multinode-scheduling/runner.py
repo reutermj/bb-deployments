@@ -19,13 +19,13 @@ This validates that:
 - The scheduler properly handles multinode task grouping
 - Workers become available for the second test after the first completes
 
-Port allocation: 9110-9114
+Port allocation: 9110-9115
   - 9110: frontend (client-facing)
   - 9111: storage
   - 9112: scheduler (client gRPC)
   - 9113: scheduler (worker gRPC)
   - 9114: scheduler (admin HTTP)
-  - 9886: socket server for test coordination
+  - 9115: socket server for test coordination
 """
 
 import sys
@@ -41,7 +41,7 @@ from lib.service_manager import (
 )
 from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
-TEST_PORT = 9886
+TEST_PORT = 9115
 EXECUTOR_PORT = 9110
 CONFIG_DIR = "_main/tests/multinode-scheduling/config"
 

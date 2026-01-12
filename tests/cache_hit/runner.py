@@ -20,7 +20,14 @@ from lib.service_manager import ServiceManager, default_services
 from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
 
-TEST_PORT = 9876
+# Port allocation: 9020-9025
+#   - 9020: frontend (client-facing)
+#   - 9021: storage
+#   - 9022: scheduler (client gRPC)
+#   - 9023: scheduler (worker gRPC)
+#   - 9024: scheduler (admin HTTP)
+#   - 9025: socket server for test coordination
+TEST_PORT = 9025
 EXECUTOR_PORT = 9020
 CONFIG_DIR = "_main/tests/cache_hit/config"
 

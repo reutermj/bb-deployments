@@ -29,7 +29,14 @@ from lib.service_manager import ServiceManager, default_services
 from lib.socket_server import SocketServer
 from lib.workspace import find_workspace_root
 
-TEST_PORT = 9880
+# Port allocation: 9030-9035
+#   - 9030: frontend (client-facing)
+#   - 9031: storage
+#   - 9032: scheduler (client gRPC)
+#   - 9033: scheduler (worker gRPC)
+#   - 9034: scheduler (admin HTTP)
+#   - 9035: socket server for test coordination
+TEST_PORT = 9035
 EXECUTOR_PORT = 9030
 CONFIG_DIR = "_main/tests/deduplication/config"
 

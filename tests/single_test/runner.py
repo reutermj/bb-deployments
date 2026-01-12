@@ -11,7 +11,14 @@ from lib.message_coordination import expect_message
 from lib.service_manager import default_services
 from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
-TEST_PORT = 9877
+# Port allocation: 9000-9005
+#   - 9000: frontend (client-facing)
+#   - 9001: storage
+#   - 9002: scheduler (client gRPC)
+#   - 9003: scheduler (worker gRPC)
+#   - 9004: scheduler (admin HTTP)
+#   - 9005: socket server for test coordination
+TEST_PORT = 9005
 EXECUTOR_PORT = 9000
 CONFIG_DIR = "_main/tests/single_test/config"
 

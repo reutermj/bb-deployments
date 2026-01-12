@@ -20,7 +20,14 @@ from lib.service_manager import (
 )
 from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
-TEST_PORT = 9882
+# Port allocation: 9050-9055
+#   - 9050: frontend (client-facing)
+#   - 9051: storage
+#   - 9052: scheduler (client gRPC)
+#   - 9053: scheduler (worker gRPC)
+#   - 9054: scheduler (admin HTTP)
+#   - 9055: socket server for test coordination
+TEST_PORT = 9055
 EXECUTOR_PORT = 9050
 CONFIG_DIR = "_main/tests/2-worker-2-parallel/config"
 

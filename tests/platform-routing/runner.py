@@ -40,7 +40,14 @@ from lib.service_manager import (
 from lib.socket_server import Message, SocketServer
 from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
-TEST_PORT = 9883
+# Port allocation: 9060-9065
+#   - 9060: frontend (client-facing)
+#   - 9061: storage
+#   - 9062: scheduler (client gRPC)
+#   - 9063: scheduler (worker gRPC)
+#   - 9064: scheduler (admin HTTP)
+#   - 9065: socket server for test coordination
+TEST_PORT = 9065
 EXECUTOR_PORT = 9060
 CONFIG_DIR = "_main/tests/platform-routing/config"
 

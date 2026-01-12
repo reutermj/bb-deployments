@@ -6,13 +6,13 @@ multiple tests can run simultaneously on the same worker.
 The test schedules N jobs and verifies they ALL send STARTED before
 any receives CONTINUE. This proves they are running concurrently.
 
-Port allocation: 9090-9094
+Port allocation: 9090-9095
   - 9090: frontend (client-facing)
   - 9091: storage
   - 9092: scheduler (client gRPC)
   - 9093: scheduler (worker gRPC)
   - 9094: scheduler (admin HTTP)
-  - 9884: socket server for test coordination
+  - 9095: socket server for test coordination
 """
 
 import sys
@@ -28,7 +28,7 @@ from lib.service_manager import (
 )
 from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
-TEST_PORT = 9884
+TEST_PORT = 9095
 EXECUTOR_PORT = 9090
 CONFIG_DIR = "_main/tests/concurrency/config"
 

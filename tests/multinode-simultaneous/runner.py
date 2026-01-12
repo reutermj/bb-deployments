@@ -13,13 +13,13 @@ Test phases (each configuration uses all 8 workers):
 Each phase verifies that ALL tasks start simultaneously before any receive CONTINUE,
 proving the scheduler correctly allocates workers for concurrent multinode execution.
 
-Port allocation: 9200-9204
+Port allocation: 9200-9205
   - 9200: frontend (client-facing)
   - 9201: storage
   - 9202: scheduler (client gRPC)
   - 9203: scheduler (worker gRPC)
   - 9204: scheduler (admin HTTP)
-  - 9886: socket server for test coordination
+  - 9205: socket server for test coordination
 """
 
 import sys
@@ -35,7 +35,7 @@ from lib.service_manager import (
 )
 from lib.test_runner import TestContextWithSocket, run_test_with_socket
 
-TEST_PORT = 9886
+TEST_PORT = 9205
 EXECUTOR_PORT = 9200
 CONFIG_DIR = "_main/tests/multinode-simultaneous/config"
 
