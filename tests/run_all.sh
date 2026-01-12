@@ -13,6 +13,7 @@
 #   concurrency:                    9090-9095  (9090-9094 services, 9095 socket)
 #   multinode-concurrency:          9100-9105  (9100-9104 services, 9105 socket)
 #   multinode-scheduling:           9110-9115  (9110-9114 services, 9115 socket)
+#   multinode-head-of-line-blocking: 9120-9125  (9120-9124 services, 9125 socket)
 #   multinode-simultaneous:         9200-9205  (9200-9204 services, 9205 socket)
 
 set -e
@@ -30,5 +31,6 @@ bazel test \
     //tests/concurrency:runner \
     //tests/multinode-concurrency:runner \
     //tests/multinode-scheduling:runner \
+    //tests/multinode-head-of-line-blocking:runner \
     //tests/multinode-simultaneous:runner \
     --test_output=errors

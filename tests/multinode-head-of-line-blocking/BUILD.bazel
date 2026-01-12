@@ -1,0 +1,40 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
+
+# Test targets for multinode head-of-line blocking test.
+# Validates that multinode jobs properly block at head-of-line,
+# preventing single-node jobs from being scheduled ahead.
+
+# Single-node test that blocks waiting for CONTINUE
+py_test(
+    name = "test_single",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    env = {"TEST_ID": "single"},
+    deps = ["//lib:test_client"],
+)
+
+# Two-node multinode test that just notifies STARTED and exits
+py_test(
+    name = "test_multi",
+    srcs = ["test_binary_notify.py"],
+    main = "test_binary_notify.py",
+    env = {"TEST_ID": "multi"},
+    exec_properties = {"multinode_count": "2"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "runner",
+    tags = ["local"],
+    size = "large",
+    timeout = "long",
+    srcs = ["runner.py"],
+    data = glob(["config/*.jsonnet"]) + glob(["config/*.libsonnet"]),
+    env_inherit = ["HOME"],
+    deps = [
+        "//lib:bazel_runner",
+        "//lib:message_coordination",
+        "//lib:service_manager",
+        "//lib:test_runner",
+    ],
+)
