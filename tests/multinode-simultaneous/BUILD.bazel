@@ -1,0 +1,79 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# Test targets for multinode simultaneous scheduling test.
+# We have 8 workers total, and test various combinations that use all 8:
+# - Phase 1: 4x 2-node tests (2n_a, 2n_b, 2n_c, 2n_d) = 8 workers
+# - Phase 2: 2x 4-node tests (4n_a, 4n_b) = 8 workers
+# - Phase 3: 2x 2-node + 1x 4-node (2n_a, 2n_b, 4n_a) = 4 + 4 = 8 workers
+
+# 2-node tests (4 of them for phase 1, 2 reused in phase 3)
+py_test(
+    name = "test_2n_a",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    exec_properties = {"multinode_count": "2"},
+    env = {"TEST_ID": "2n_a"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test_2n_b",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    exec_properties = {"multinode_count": "2"},
+    env = {"TEST_ID": "2n_b"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test_2n_c",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    exec_properties = {"multinode_count": "2"},
+    env = {"TEST_ID": "2n_c"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test_2n_d",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    exec_properties = {"multinode_count": "2"},
+    env = {"TEST_ID": "2n_d"},
+    deps = ["//lib:test_client"],
+)
+
+# 4-node tests (2 of them for phase 2, 1 reused in phase 3)
+py_test(
+    name = "test_4n_a",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    exec_properties = {"multinode_count": "4"},
+    env = {"TEST_ID": "4n_a"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "test_4n_b",
+    srcs = ["test_binary.py"],
+    main = "test_binary.py",
+    exec_properties = {"multinode_count": "4"},
+    env = {"TEST_ID": "4n_b"},
+    deps = ["//lib:test_client"],
+)
+
+py_test(
+    name = "runner",
+    tags = ["local"],
+    size = "large",
+    timeout = "long",
+    srcs = ["runner.py"],
+    data = glob(["config/*.jsonnet"]) + glob(["config/*.libsonnet"]),
+    env_inherit = ["HOME"],
+    deps = [
+        "//lib:bazel_runner",
+        "//lib:message_coordination",
+        "//lib:service_manager",
+        "//lib:test_runner",
+    ],
+)
