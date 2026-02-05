@@ -15,6 +15,7 @@
 #   multinode-scheduling:           9110-9115  (9110-9114 services, 9115 socket)
 #   multinode-head-of-line-blocking: 9120-9125  (9120-9124 services, 9125 socket)
 #   multinode-simultaneous:         9200-9205  (9200-9204 services, 9205 socket)
+#   scheduler-chaos:                9210-9215  (9210-9214 services, 9215 socket)
 
 set -e
 
@@ -33,4 +34,5 @@ bazel test \
     //tests/multinode-scheduling:runner \
     //tests/multinode-head-of-line-blocking:runner \
     //tests/multinode-simultaneous:runner \
+    //tests/scheduler-chaos:runner \
     --test_output=errors

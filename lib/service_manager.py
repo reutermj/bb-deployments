@@ -197,6 +197,85 @@ class ServiceManager:
         """Check if all services are still running."""
         return all(proc.poll() is None for _, proc in self._processes)
 
+    def get_service_pid(self, name: str) -> Optional[int]:
+        """Get the PID of a running service by name."""
+        for service, proc in self._processes:
+            if service.name == name and proc.poll() is None:
+                return proc.pid
+        return None
+
+    def is_service_running(self, name: str) -> bool:
+        """Check if a specific service is running."""
+        for service, proc in self._processes:
+            if service.name == name:
+                return proc.poll() is None
+        return False
+
+    def kill_service(self, name: str) -> bool:
+        """Kill a specific service with SIGKILL.
+
+        Returns True if the service was found and killed.
+        """
+        for i, (service, proc) in enumerate(self._processes):
+            if service.name == name:
+                if proc.poll() is None:
+                    print(f"Killing {name} (PID {proc.pid}) with SIGKILL")
+                    try:
+                        proc.kill()
+                        proc.wait()
+                        print(f"{name} killed, exit code: {proc.returncode}")
+                    except OSError as e:
+                        print(f"Error killing {name}: {e}")
+                        return False
+                # Remove from processes list
+                self._processes.pop(i)
+                return True
+        print(f"Service {name} not found")
+        return False
+
+    def start_service(self, name: str, wait: float = STARTUP_WAIT) -> bool:
+        """Start a specific service that was previously killed.
+
+        Returns True if the service started successfully.
+        """
+        # Find the service config
+        service_config = None
+        for service in self.services:
+            if service.name == name:
+                service_config = service
+                break
+
+        if service_config is None:
+            print(f"Service config for {name} not found")
+            return False
+
+        # Check if already running
+        for service, proc in self._processes:
+            if service.name == name and proc.poll() is None:
+                print(f"Service {name} is already running")
+                return True
+
+        # Start the service
+        proc = self._start_service(service_config)
+        if proc is None:
+            return False
+
+        print(f"Started {name} with PID {proc.pid}")
+        self._processes.append((service_config, proc))
+
+        if wait > 0:
+            print(f"Waiting {wait}s for {name} to initialize...")
+            time.sleep(wait)
+        return True
+
+    def restart_service(self, name: str, wait: float = STARTUP_WAIT) -> bool:
+        """Restart a specific service (kill + start).
+
+        Returns True if the service restarted successfully.
+        """
+        self.kill_service(name)
+        return self.start_service(name, wait)
+
     def __enter__(self) -> "ServiceManager":
         self.start()
         return self

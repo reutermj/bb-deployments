@@ -1,5 +1,12 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
 
+# Config files for use by other tests
+filegroup(
+    name = "config",
+    srcs = glob(["config/*.jsonnet"]) + glob(["config/*.libsonnet"]),
+    visibility = ["//visibility:public"],
+)
+
 # Test targets for concurrency test.
 # Each test uses a unique TEST_ID to identify itself.
 
